@@ -24,10 +24,40 @@ import (
 const (
 	startURL  = "https://api.snov.io/v2/domain-search/start"
 	resultURL = "https://api.snov.io/v2/domain-search/domain-emails/result/%s"
+	meURL     = "https://api.snov.io/v2/me"
 
 	pollInterval = 3 * time.Second
 	maxPolls     = 20 // up to ~60 seconds
 )
+
+// ── Account Info Types ────────────────────────────────────────────────────────
+
+// AccountInfo holds Snov.io account credentials and usage limits.
+type AccountInfo struct {
+	Email          string
+	Name           string
+	Plan           string
+	CreditsLeft    int
+	CreditsTotal   int
+	CreditsUsed    int
+}
+
+type meResponse struct {
+	Data struct {
+		Email        string `json:"email"`
+		Name         string `json:"name"`
+		Plan         string `json:"plan"`
+		CreditsLeft  int    `json:"credits_left"`
+		CreditsTotal int    `json:"credits_total"`
+		CreditsUsed  int    `json:"credits_used"`
+	} `json:"data"`
+	// Some Snov.io endpoints return top-level fields
+	Email        string `json:"email"`
+	Name         string `json:"name"`
+	Plan         string `json:"plan"`
+	CreditsLeft  int    `json:"credits_left"`
+	CreditsTotal int    `json:"credits_total"`
+}
 
 // ── Response types ────────────────────────────────────────────────────────────
 
@@ -60,7 +90,115 @@ type resultResponse struct {
 	} `json:"links"`
 }
 
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
+
+func newClient() *http.Client {
+	return &http.Client{Timeout: 20 * time.Second}
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
+
+// GetAccountInfo fetches Snov.io account credentials and credit limits.
+// Returns nil (with a printed warning) when the key is empty or the call fails.
+func GetAccountInfo(apiKey string) *AccountInfo {
+	if apiKey == "" {
+		return nil
+	}
+
+	red := color.New(color.FgRed)
+	client := newClient()
+
+	// Snov.io /v2/me accepts api_key as query param
+	reqURL := meURL + "?api_key=" + apiKey
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		red.Printf("  [-] Snov.io account fetch error: %v\n", err)
+		return nil
+	}
+	req.Header.Set("User-Agent", "EmailHunter/1.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		red.Printf("  [-] Snov.io account fetch error: %v\n", err)
+		return nil
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		red.Printf("  [-] Snov.io account: HTTP %d\n", resp.StatusCode)
+		return nil
+	}
+
+	var parsed meResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		red.Printf("  [-] Snov.io account parse error: %v\n", err)
+		return nil
+	}
+
+	// Handle both nested (.data) and flat response formats
+	info := &AccountInfo{}
+	if parsed.Data.Email != "" {
+		info.Email        = parsed.Data.Email
+		info.Name         = parsed.Data.Name
+		info.Plan         = parsed.Data.Plan
+		info.CreditsLeft  = parsed.Data.CreditsLeft
+		info.CreditsTotal = parsed.Data.CreditsTotal
+		info.CreditsUsed  = parsed.Data.CreditsUsed
+	} else {
+		info.Email        = parsed.Email
+		info.Name         = parsed.Name
+		info.Plan         = parsed.Plan
+		info.CreditsLeft  = parsed.CreditsLeft
+		info.CreditsTotal = parsed.CreditsTotal
+	}
+
+	if info.Email == "" {
+		// Endpoint might not exist or returned unexpected format
+		red.Println("  [-] Snov.io account: no user data in response")
+		return nil
+	}
+
+	return info
+}
+
+// PrintAccountInfo displays Snov.io account details in a formatted box.
+func PrintAccountInfo(info *AccountInfo) {
+	cyan   := color.New(color.FgCyan, color.Bold)
+	green  := color.New(color.FgGreen, color.Bold)
+	yellow := color.New(color.FgYellow)
+	dim    := color.New(color.FgHiBlack)
+
+	dim.Println("  ┌─ Snov.io ───────────────────────────────────────────────────")
+
+	row := func(label, val string) {
+		dim.Printf("  │  ")
+		cyan.Printf("%-14s", label)
+		fmt.Printf(" : %s\n", val)
+	}
+
+	if info == nil {
+		dim.Printf("  │  ")
+		yellow.Println("API key not set — module will be skipped")
+		dim.Println("  └─────────────────────────────────────────────────────────────")
+		return
+	}
+
+	row("Account", info.Email+"  ("+info.Name+")")
+	if info.Plan != "" {
+		row("Plan", green.Sprint(info.Plan))
+	}
+
+	if info.CreditsTotal > 0 {
+		bar := limitBar(info.CreditsUsed, info.CreditsTotal)
+		row("Credits", fmt.Sprintf("%d / %d used  %s  (%d remaining)",
+			info.CreditsUsed, info.CreditsTotal, bar, info.CreditsLeft))
+	} else if info.CreditsLeft > 0 {
+		row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
+	}
+
+	dim.Println("  └─────────────────────────────────────────────────────────────")
+}
 
 // Search triggers a Snov.io domain-search job, polls for completion,
 // and returns all discovered emails (paginated).
@@ -73,11 +211,11 @@ func Search(domain, apiKey string) []output.Result {
 	fmt.Println("Querying Snov.io API...")
 
 	if apiKey == "" {
-		yellow.Println("  [!] Skipping Snov.io — no API key provided (-snov-key)")
+		yellow.Println("  [!] Skipping Snov.io — no API key provided")
 		return nil
 	}
 
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := newClient()
 
 	// ── Step 1: Start the search task ────────────────────────────────────────
 	taskHash, err := startSearch(client, domain, apiKey)
@@ -92,6 +230,7 @@ func Search(domain, apiKey string) []output.Result {
 	var allResults []output.Result
 	seen := map[string]bool{}
 	nextCursor := ""
+	totalCount := 0
 
 	for poll := 0; poll < maxPolls; poll++ {
 		time.Sleep(pollInterval)
@@ -100,6 +239,10 @@ func Search(domain, apiKey string) []output.Result {
 		if err != nil {
 			red.Printf("  [-] Snov.io poll error: %v\n", err)
 			break
+		}
+
+		if res.Meta.TotalCount > 0 {
+			totalCount = res.Meta.TotalCount
 		}
 
 		// Collect emails from this page
@@ -115,16 +258,13 @@ func Search(domain, apiKey string) []output.Result {
 
 		switch res.Status {
 		case "completed":
-			// Check if there are more pages
 			if res.Links.Next != "" && res.Meta.Next != "" {
 				nextCursor = res.Meta.Next
-				// Reset poll counter for next page, but limit total pages
 				if poll < maxPolls-1 {
 					poll = 0
 				}
 				continue
 			}
-			// No more pages — done
 			goto done
 
 		case "failed":
@@ -132,7 +272,6 @@ func Search(domain, apiKey string) []output.Result {
 			goto done
 
 		default:
-			// "queued" or "in_progress" — keep polling
 			cyan.Printf("  [*] ")
 			fmt.Printf("Snov.io status: %s (attempt %d/%d)\n", res.Status, poll+1, maxPolls)
 		}
@@ -140,14 +279,17 @@ func Search(domain, apiKey string) []output.Result {
 
 done:
 	cyan.Printf("  [*] ")
-	fmt.Printf("Snov.io returned %d emails\n", len(allResults))
+	fmt.Printf("Snov.io returned %d emails", len(allResults))
+	if totalCount > 0 && totalCount > len(allResults) {
+		fmt.Printf("  (total available: %d)", totalCount)
+	}
+	fmt.Println()
 
 	return allResults
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-// startSearch POSTs to the start endpoint and returns the task_hash.
 func startSearch(client *http.Client, domain, apiKey string) (string, error) {
 	payload := map[string]string{
 		"domain":  domain,
@@ -186,20 +328,18 @@ func startSearch(client *http.Client, domain, apiKey string) (string, error) {
 	return parsed.Meta.TaskHash, nil
 }
 
-// fetchResult GETs the current results for a task.
-// nextCursor is the pagination token from a previous response (empty = first page).
 func fetchResult(client *http.Client, taskHash, apiKey, nextCursor string) (*resultResponse, error) {
-	url := fmt.Sprintf(resultURL, taskHash)
+	var reqURL string
 	if nextCursor != "" {
-		url = fmt.Sprintf(
+		reqURL = fmt.Sprintf(
 			"https://api.snov.io/v2/domain-search/domain-emails/start?domain=&next=%s&api_key=%s",
 			nextCursor, apiKey,
 		)
 	} else {
-		url = url + "?api_key=" + apiKey
+		reqURL = fmt.Sprintf(resultURL, taskHash) + "?api_key=" + apiKey
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -223,4 +363,26 @@ func fetchResult(client *http.Client, taskHash, apiKey, nextCursor string) (*res
 	}
 
 	return &parsed, nil
+}
+
+// limitBar returns a small ASCII progress bar showing used/total ratio.
+func limitBar(used, total int) string {
+	if total == 0 {
+		return "[----------]"
+	}
+	filled := (used * 10) / total
+	if filled > 10 {
+		filled = 10
+	}
+	bar := "["
+	for i := 0; i < 10; i++ {
+		if i < filled {
+			bar += "█"
+		} else {
+			bar += "░"
+		}
+	}
+	bar += "]"
+	pct := (used * 100) / total
+	return fmt.Sprintf("%s %d%%", bar, pct)
 }

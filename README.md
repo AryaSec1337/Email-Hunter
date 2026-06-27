@@ -49,71 +49,6 @@ go build -o email-hunter .
 
 ---
 
-## 🔑 Configuration File (Auto-Setup)
-
-**No manual setup needed.** On the very first run, the tool automatically:
-
-1. Creates the directory `~/.config/` (if it doesn't exist)
-2. Creates the file `~/.config/.config-emailhunter` with a ready-to-fill template
-
-You will see this on first run:
-
-```
-  [+] Config file created for the first time!
-  [*] Location : /home/user/.config/.config-emailhunter
-  [!] Please fill in your API keys in the config file, then re-run.
-```
-
-### Config File Location
-
-| OS | Path |
-|----|------|
-| Linux / macOS | `~/.config/.config-emailhunter` |
-| Windows | `%USERPROFILE%\.config\.config-emailhunter` |
-
-### Config File Format
-
-The file is auto-generated with comments included:
-
-```ini
-# ============================================================
-#  Email-Hunter Configuration File
-#  Auto-generated on first run.
-#
-#  Fill in your API keys below, then re-run the tool.
-#
-#  Get your keys at:
-#    Hunter.io  -> https://hunter.io/api-keys
-#    Snov.io    -> https://app.snov.io/account?settings=api
-# ============================================================
-
-# Hunter.io API Key
-HUNTER_API_KEY=your_key_here
-
-# Snov.io API Key
-SNOV_API_KEY=your_key_here
-```
-
-### API Key Check on Every Run
-
-Each time the tool starts, it checks the status of all API keys and reports clearly:
-
-```
-  [*] Config : /home/user/.config/.config-emailhunter
-  [*]   HUNTER_API_KEY:    ✔  loaded (abcd****efgh)
-  [*]   SNOV_API_KEY:      ✘  not set
-
-  [!] Snov.io API key is not set.
-      Edit your config file and fill in SNOV_API_KEY:
-      /home/user/.config/.config-emailhunter
-
-  [!] API modules with missing keys will be skipped automatically.
-      Use --no-snov to suppress this warning.
-```
-
-> **Priority rule:** CLI flag `-hunter-key` / `-snov-key` **always wins** over the config file.  
-> Useful for testing a different key without editing the file.
-
 ---
 
 ## 🚀 Usage
@@ -165,26 +100,40 @@ email-hunter -d <domain> [options]
 ## 📊 Output Example
 
 ```
-  [+] Config file created for the first time!       ← first run only
+  # ── First run: auto-creates config file ───────────────────────────────
+  [+] Config file created for the first time!
   [*] Location : /home/user/.config/.config-emailhunter
+  [!] Please fill in your API keys in the config file, then re-run.
 
-  --- or on subsequent runs ---
-
+  # ── Subsequent runs: shows account info + limits ──────────────────────
   [*] Config : /home/user/.config/.config-emailhunter
-  [*]   HUNTER_API_KEY:    ✔  loaded (abcd****efgh)
-  [*]   SNOV_API_KEY:      ✔  loaded (1234****5678)
+  [*]   HUNTER_API_KEY:  ✔  loaded (abcd****efgh)
+  [*]   SNOV_API_KEY:    ✔  loaded (1234****5678)
+
+  ┌─ Hunter.io ─────────────────────────────────────────────────
+  │  Account       : john@example.com  (John Doe)
+  │  Plan          : Free
+  │  Searches      : 5 / 25 used  [██░░░░░░░░] 20%  (resets 2026-07-01)
+  │  Verifications : 0 / 50 used  [░░░░░░░░░░] 0%
+  └─────────────────────────────────────────────────────────────
+
+  ┌─ Snov.io ───────────────────────────────────────────────────
+  │  Account       : john@example.com  (John Doe)
+  │  Plan          : Starter
+  │  Credits       : 150 / 500 used  [███░░░░░░░] 30%  (350 remaining)
+  └─────────────────────────────────────────────────────────────
 
   [*] Target domain : example.com
 
   [*] Querying Hunter.io API...
   [+] admin@example.com                     [hunter.io (conf:95%)]
   [+] contact@example.com                   [hunter.io (conf:78%)]
-  [*] Hunter.io returned 2 emails
+  [*] Hunter.io returned 2 emails  (showing 2 / 12 total)
 
   [*] Querying Snov.io API...
   [*] Snov.io task started (hash: 6f15de14...)
   [+] support@example.com                   [snov.io]
-  [*] Snov.io returned 1 emails
+  [*] Snov.io returned 1 emails  (total available: 108)
 
   [*] Scan complete for domain: example.com
   [*] Total unique emails found: 3

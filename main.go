@@ -82,6 +82,23 @@ func main() {
 
 	// ── Print Config Status ───────────────────────────────────────────────────
 	config.PrintStatus(cfg, *noHunter, *noSnov)
+	fmt.Println()
+
+	// ── Fetch & Display Account Info + Limits ─────────────────────────────────
+	// Retrieve credentials and quota from each enabled API.
+	var hunterInfo *hunterio.AccountInfo
+	var snovInfo   *snovio.AccountInfo
+
+	if !*noHunter {
+		hunterInfo = hunterio.GetAccountInfo(*hunterKey)
+	}
+	if !*noSnov {
+		snovInfo = snovio.GetAccountInfo(*snovKey)
+	}
+
+	hunterio.PrintAccountInfo(hunterInfo)
+	snovio.PrintAccountInfo(snovInfo)
+	fmt.Println()
 
 	// ── Warn About Missing API Keys ───────────────────────────────────────────
 	config.WarnMissingKeys(cfg, *noHunter, *noSnov)

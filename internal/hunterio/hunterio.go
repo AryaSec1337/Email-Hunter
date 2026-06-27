@@ -15,7 +15,42 @@ import (
 	"github.com/AryaSec1337/Email-Hunter/internal/output"
 )
 
-// ── API Response Types ────────────────────────────────────────────────────────
+// ── Account Info Types ────────────────────────────────────────────────────────
+
+// AccountInfo holds Hunter.io account details and usage limits.
+type AccountInfo struct {
+	Email      string
+	FirstName  string
+	LastName   string
+	PlanName   string
+	ResetDate  string
+	SearchUsed int
+	SearchMax  int
+	VerifUsed  int
+	VerifMax   int
+}
+
+type accountResponse struct {
+	Data struct {
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Email     string `json:"email"`
+		PlanName  string `json:"plan_name"`
+		ResetDate string `json:"reset_date"`
+		Requests  struct {
+			Searches struct {
+				Used      int `json:"used"`
+				Available int `json:"available"`
+			} `json:"searches"`
+			Verifications struct {
+				Used      int `json:"used"`
+				Available int `json:"available"`
+			} `json:"verifications"`
+		} `json:"requests"`
+	} `json:"data"`
+}
+
+// ── Search Response Types ─────────────────────────────────────────────────────
 
 type emailEntry struct {
 	Value      string `json:"value"`
@@ -31,6 +66,11 @@ type apiResponse struct {
 		Domain string       `json:"domain"`
 		Emails []emailEntry `json:"emails"`
 	} `json:"data"`
+	Meta struct {
+		Results int `json:"results"`
+		Limit   int `json:"limit"`
+		Offset  int `json:"offset"`
+	} `json:"meta"`
 	Errors []struct {
 		ID      string `json:"id"`
 		Code    int    `json:"code"`
@@ -38,7 +78,108 @@ type apiResponse struct {
 	} `json:"errors"`
 }
 
+// ── HTTP Client ───────────────────────────────────────────────────────────────
+
+func newClient() *http.Client {
+	return &http.Client{Timeout: 20 * time.Second}
+}
+
+func doGet(client *http.Client, rawURL string) ([]byte, int, error) {
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("User-Agent", "EmailHunter/1.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return body, resp.StatusCode, nil
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
+
+// GetAccountInfo fetches account credentials and usage limits from Hunter.io.
+// Returns nil (with a printed warning) when the key is empty or the call fails.
+func GetAccountInfo(apiKey string) *AccountInfo {
+	if apiKey == "" {
+		return nil
+	}
+
+	red := color.New(color.FgRed)
+	apiURL := fmt.Sprintf(
+		"https://api.hunter.io/v2/account?api_key=%s",
+		url.QueryEscape(apiKey),
+	)
+
+	body, status, err := doGet(newClient(), apiURL)
+	if err != nil {
+		red.Printf("  [-] Hunter.io account fetch error: %v\n", err)
+		return nil
+	}
+	if status != http.StatusOK {
+		red.Printf("  [-] Hunter.io account: HTTP %d\n", status)
+		return nil
+	}
+
+	var parsed accountResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		red.Printf("  [-] Hunter.io account parse error: %v\n", err)
+		return nil
+	}
+
+	d := parsed.Data
+	return &AccountInfo{
+		Email:      d.Email,
+		FirstName:  d.FirstName,
+		LastName:   d.LastName,
+		PlanName:   d.PlanName,
+		ResetDate:  d.ResetDate,
+		SearchUsed: d.Requests.Searches.Used,
+		SearchMax:  d.Requests.Searches.Available,
+		VerifUsed:  d.Requests.Verifications.Used,
+		VerifMax:   d.Requests.Verifications.Available,
+	}
+}
+
+// PrintAccountInfo displays Hunter.io account details in a formatted box.
+func PrintAccountInfo(info *AccountInfo) {
+	cyan   := color.New(color.FgCyan, color.Bold)
+	green  := color.New(color.FgGreen, color.Bold)
+	yellow := color.New(color.FgYellow)
+	dim    := color.New(color.FgHiBlack)
+
+	dim.Println("  ┌─ Hunter.io ─────────────────────────────────────────────────")
+
+	row := func(label, val string) {
+		dim.Printf("  │  ")
+		cyan.Printf("%-14s", label)
+		fmt.Printf(" : %s\n", val)
+	}
+
+	if info == nil {
+		dim.Printf("  │  ")
+		yellow.Println("API key not set — module will be skipped")
+		dim.Println("  └─────────────────────────────────────────────────────────────")
+		return
+	}
+
+	name := info.FirstName + " " + info.LastName
+	row("Account", info.Email+"  ("+name+")")
+	row("Plan", green.Sprint(info.PlanName))
+
+	searchBar := limitBar(info.SearchUsed, info.SearchMax)
+	row("Searches", fmt.Sprintf("%d / %d used  %s  (resets %s)",
+		info.SearchUsed, info.SearchMax, searchBar, info.ResetDate))
+
+	verifBar := limitBar(info.VerifUsed, info.VerifMax)
+	row("Verifications", fmt.Sprintf("%d / %d used  %s",
+		info.VerifUsed, info.VerifMax, verifBar))
+
+	dim.Println("  └─────────────────────────────────────────────────────────────")
+}
 
 // Search queries the Hunter.io domain-search endpoint and returns
 // all email addresses associated with the target domain.
@@ -51,7 +192,7 @@ func Search(domain, apiKey string) []output.Result {
 	fmt.Println("Querying Hunter.io API...")
 
 	if apiKey == "" {
-		yellow.Println("  [!] Skipping Hunter.io — no API key provided (-hunter-key)")
+		yellow.Println("  [!] Skipping Hunter.io — no API key provided")
 		return nil
 	}
 
@@ -61,25 +202,13 @@ func Search(domain, apiKey string) []output.Result {
 		url.QueryEscape(apiKey),
 	)
 
-	client := &http.Client{Timeout: 20 * time.Second}
-	req, err := http.NewRequest("GET", apiURL, nil)
-	if err != nil {
-		red.Printf("  [-] Hunter.io request build error: %v\n", err)
-		return nil
-	}
-	req.Header.Set("User-Agent", "EmailHunter/1.0")
-
-	resp, err := client.Do(req)
+	body, status, err := doGet(newClient(), apiURL)
 	if err != nil {
 		red.Printf("  [-] Hunter.io request error: %v\n", err)
 		return nil
 	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		red.Printf("  [-] Hunter.io returned HTTP %d\n", resp.StatusCode)
+	if status != http.StatusOK {
+		red.Printf("  [-] Hunter.io returned HTTP %d\n", status)
 		return nil
 	}
 
@@ -89,7 +218,6 @@ func Search(domain, apiKey string) []output.Result {
 		return nil
 	}
 
-	// Report any API-level errors
 	for _, e := range parsed.Errors {
 		red.Printf("  [-] Hunter.io API error [%d]: %s\n", e.Code, e.Details)
 	}
@@ -105,7 +233,35 @@ func Search(domain, apiKey string) []output.Result {
 	}
 
 	cyan.Printf("  [*] ")
-	fmt.Printf("Hunter.io returned %d emails\n", len(results))
+	fmt.Printf("Hunter.io returned %d emails", len(results))
+	if parsed.Meta.Results > 0 {
+		fmt.Printf("  (showing %d / %d total)", len(results), parsed.Meta.Results)
+	}
+	fmt.Println()
 
 	return results
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// limitBar returns a small ASCII progress bar showing used/max ratio.
+func limitBar(used, max int) string {
+	if max == 0 {
+		return "[----------]"
+	}
+	filled := (used * 10) / max
+	if filled > 10 {
+		filled = 10
+	}
+	bar := "["
+	for i := 0; i < 10; i++ {
+		if i < filled {
+			bar += "█"
+		} else {
+			bar += "░"
+		}
+	}
+	bar += "]"
+	pct := (used * 100) / max
+	return fmt.Sprintf("%s %d%%", bar, pct)
 }
