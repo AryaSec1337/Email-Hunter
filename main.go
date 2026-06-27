@@ -16,21 +16,38 @@ import (
 	"github.com/AryaSec1337/Email-Hunter/internal/hunterio"
 	"github.com/AryaSec1337/Email-Hunter/internal/output"
 	"github.com/AryaSec1337/Email-Hunter/internal/snovio"
+	"github.com/AryaSec1337/Email-Hunter/internal/rocketreach"
+	"github.com/AryaSec1337/Email-Hunter/internal/prospeo"
+	"github.com/AryaSec1337/Email-Hunter/internal/findymail"
+	"github.com/AryaSec1337/Email-Hunter/internal/contactout"
 )
 
 func main() {
 	// ── CLI Flags ─────────────────────────────────────────────────────────────
-	domain    := flag.String("d", "", "Target domain to hunt emails from (e.g. example.com)")
-	maxPages  := flag.Int("p", 50, "Maximum number of pages to crawl")
-	maxDepth  := flag.Int("depth", 3, "Maximum crawl depth")
-	outFile   := flag.String("o", "", "Output file path (extension determines format: .txt .json .csv)")
-	noWeb     := flag.Bool("no-web", false, "Skip web crawling")
-	noDork    := flag.Bool("no-dork", false, "Skip search engine dorking")
-	noCert    := flag.Bool("no-cert", false, "Skip crt.sh certificate lookup")
-	noHunter  := flag.Bool("no-hunter", false, "Skip Hunter.io API")
-	noSnov    := flag.Bool("no-snov", false, "Skip Snov.io API")
-	hunterKey := flag.String("hunter-key", "", "Hunter.io API key (overrides config file)")
-	snovKey   := flag.String("snov-key", "", "Snov.io API key (overrides config file)")
+	domain          := flag.String("d", "", "Target domain to hunt emails from (e.g. example.com)")
+	maxPages        := flag.Int("p", 50, "Maximum number of pages to crawl")
+	maxDepth        := flag.Int("depth", 3, "Maximum crawl depth")
+	outFile         := flag.String("o", "", "Output file path (extension determines format: .txt .json .csv)")
+	
+	// Skip flags
+	noWeb           := flag.Bool("no-web", false, "Skip web crawling")
+	noDork          := flag.Bool("no-dork", false, "Skip search engine dorking")
+	noCert          := flag.Bool("no-cert", false, "Skip crt.sh certificate lookup")
+	noHunter        := flag.Bool("no-hunter", false, "Skip Hunter.io API")
+	noSnov          := flag.Bool("no-snov", false, "Skip Snov.io API")
+	noRocketReach   := flag.Bool("no-rocketreach", false, "Skip RocketReach API")
+	noProspeo       := flag.Bool("no-prospeo", false, "Skip Prospeo API")
+	noFindyMail     := flag.Bool("no-findymail", false, "Skip FindyMail API")
+	noContactOut    := flag.Bool("no-contactout", false, "Skip ContactOut API")
+
+	// API Keys (override config file)
+	hunterKey       := flag.String("hunter-key", "", "Hunter.io API key")
+	snovKey         := flag.String("snov-key", "", "Snov.io API key")
+	rocketreachKey  := flag.String("rocketreach-key", "", "RocketReach API key")
+	prospeoKey      := flag.String("prospeo-key", "", "Prospeo API key")
+	findymailKey    := flag.String("findymail-key", "", "FindyMail API key")
+	contactoutKey   := flag.String("contactout-key", "", "ContactOut API key")
+
 	flag.Usage = usage
 	flag.Parse()
 
@@ -38,7 +55,6 @@ func main() {
 	banner.Print()
 
 	// ── Auto-setup Config File ────────────────────────────────────────────────
-	// On first run: creates ~/.config/ and ~/.config/.config-emailhunter automatically.
 	cyan   := color.New(color.FgCyan, color.Bold)
 	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow, color.Bold)
@@ -58,36 +74,54 @@ func main() {
 		yellow.Printf("  [!] Could not create config file: %v\n\n", setupErr)
 
 	case config.SetupAlreadyExists:
-		// Normal run — config already present, nothing to announce
+		// Normal run
 	}
 
 	// ── Load Config Values ────────────────────────────────────────────────────
-	// Priority: CLI flag > config file > empty
 	cfg, cfgErr := config.Load()
 	if cfgErr != nil {
 		yellow.Printf("  [!] Config load warning: %v\n", cfgErr)
 	}
 
-	// Merge: CLI flag wins; fall back to config file value
+	// Merge keys: CLI flag wins, falls back to config file
 	if *hunterKey == "" {
 		*hunterKey = cfg.HunterAPIKey
 	}
 	if *snovKey == "" {
 		*snovKey = cfg.SnovAPIKey
 	}
+	if *rocketreachKey == "" {
+		*rocketreachKey = cfg.RocketReachAPIKey
+	}
+	if *prospeoKey == "" {
+		*prospeoKey = cfg.ProspeoAPIKey
+	}
+	if *findymailKey == "" {
+		*findymailKey = cfg.FindyMailAPIKey
+	}
+	if *contactoutKey == "" {
+		*contactoutKey = cfg.ContactOutAPIKey
+	}
 
-	// Reflect merged state back into cfg so PrintStatus shows the right values
+	// Reflect merged state back to config struct
 	cfg.HunterAPIKey = *hunterKey
-	cfg.SnovAPIKey   = *snovKey
+	cfg.SnovAPIKey = *snovKey
+	cfg.RocketReachAPIKey = *rocketreachKey
+	cfg.ProspeoAPIKey = *prospeoKey
+	cfg.FindyMailAPIKey = *findymailKey
+	cfg.ContactOutAPIKey = *contactoutKey
 
 	// ── Print Config Status ───────────────────────────────────────────────────
-	config.PrintStatus(cfg, *noHunter, *noSnov)
+	config.PrintStatus(cfg, *noHunter, *noSnov, *noRocketReach, *noProspeo, *noFindyMail, *noContactOut)
 	fmt.Println()
 
 	// ── Fetch & Display Account Info + Limits ─────────────────────────────────
-	// Retrieve credentials and quota from each enabled API.
 	var hunterInfo *hunterio.AccountInfo
-	var snovInfo   *snovio.AccountInfo
+	var snovInfo *snovio.AccountInfo
+	var rocketreachInfo *rocketreach.AccountInfo
+	var prospeoInfo *prospeo.AccountInfo
+	var findymailInfo *findymail.AccountInfo
+	var contactoutInfo *contactout.AccountInfo
 
 	if !*noHunter {
 		hunterInfo = hunterio.GetAccountInfo(*hunterKey)
@@ -95,13 +129,29 @@ func main() {
 	if !*noSnov {
 		snovInfo = snovio.GetAccountInfo(*snovKey)
 	}
+	if !*noRocketReach {
+		rocketreachInfo = rocketreach.GetAccountInfo(*rocketreachKey)
+	}
+	if !*noProspeo {
+		prospeoInfo = prospeo.GetAccountInfo(*prospeoKey)
+	}
+	if !*noFindyMail {
+		findymailInfo = findymail.GetAccountInfo(*findymailKey)
+	}
+	if !*noContactOut {
+		contactoutInfo = contactout.GetAccountInfo(*contactoutKey)
+	}
 
 	hunterio.PrintAccountInfo(hunterInfo)
 	snovio.PrintAccountInfo(snovInfo)
+	rocketreach.PrintAccountInfo(rocketreachInfo)
+	prospeo.PrintAccountInfo(prospeoInfo)
+	findymail.PrintAccountInfo(findymailInfo)
+	contactout.PrintAccountInfo(contactoutInfo)
 	fmt.Println()
 
 	// ── Warn About Missing API Keys ───────────────────────────────────────────
-	config.WarnMissingKeys(cfg, *noHunter, *noSnov)
+	config.WarnMissingKeys(cfg, *noHunter, *noSnov, *noRocketReach, *noProspeo, *noFindyMail, *noContactOut)
 
 	// ── Validate Domain ───────────────────────────────────────────────────────
 	if *domain == "" {
@@ -123,9 +173,6 @@ func main() {
 	var allResults []output.Result
 
 	// ── Global deduplication set ──────────────────────────────────────────────
-	// One SeenSet is shared across ALL modules. Each module calls seen.Add()
-	// before printing/collecting, so no email ever appears twice — even when
-	// the same address is found by Hunter.io, Snov.io, the crawler, etc.
 	seen := output.NewSeenSet()
 
 	// ── Module: Hunter.io API ─────────────────────────────────────────────────
@@ -139,6 +186,34 @@ func main() {
 	if !*noSnov {
 		snovResults := snovio.Search(*domain, *snovKey, seen)
 		allResults = append(allResults, snovResults...)
+		fmt.Println()
+	}
+
+	// ── Module: RocketReach API ───────────────────────────────────────────────
+	if !*noRocketReach {
+		rocketreachResults := rocketreach.Search(*domain, *rocketreachKey, seen)
+		allResults = append(allResults, rocketreachResults...)
+		fmt.Println()
+	}
+
+	// ── Module: Prospeo API ───────────────────────────────────────────────────
+	if !*noProspeo {
+		prospeoResults := prospeo.Search(*domain, *prospeoKey, seen)
+		allResults = append(allResults, prospeoResults...)
+		fmt.Println()
+	}
+
+	// ── Module: FindyMail API ─────────────────────────────────────────────────
+	if !*noFindyMail {
+		findymailResults := findymail.Search(*domain, *findymailKey, seen)
+		allResults = append(allResults, findymailResults...)
+		fmt.Println()
+	}
+
+	// ── Module: ContactOut API ────────────────────────────────────────────────
+	if !*noContactOut {
+		contactoutResults := contactout.Search(*domain, *contactoutKey, seen)
+		allResults = append(allResults, contactoutResults...)
 		fmt.Println()
 	}
 
@@ -163,9 +238,6 @@ func main() {
 		allResults = append(allResults, crawlResults...)
 		fmt.Println()
 	}
-
-	// ── Deduplicate ───────────────────────────────────────────────────────────
-	allResults = output.Deduplicate(allResults)
 
 	// ── Summary ───────────────────────────────────────────────────────────────
 	output.PrintSummary(allResults, *domain)
@@ -209,32 +281,40 @@ func usage() {
 	cyan.Println("  OPTIONS:")
 
 	flags := [][]string{
-		{"-d <domain>",       "Target domain (required)"},
-		{"-o <file>",         "Output file (.txt / .json / .csv)"},
-		{"-p <int>",          "Max pages to crawl (default: 50)"},
-		{"-depth <int>",      "Crawl depth (default: 3)"},
-		{"-hunter-key <key>", "Hunter.io API key (overrides config file)"},
-		{"-snov-key <key>",   "Snov.io API key (overrides config file)"},
-		{"--no-hunter",       "Disable Hunter.io module"},
-		{"--no-snov",         "Disable Snov.io module"},
-		{"--no-web",          "Disable web crawler module"},
-		{"--no-dork",         "Disable dork search module"},
-		{"--no-cert",         "Disable crt.sh module"},
+		{"-d <domain>",          "Target domain (required)"},
+		{"-o <file>",            "Output file (.txt / .json / .csv)"},
+		{"-p <int>",             "Max pages to crawl (default: 50)"},
+		{"-depth <int>",         "Crawl depth (default: 3)"},
+		{"-hunter-key <key>",    "Hunter.io API key (overrides config file)"},
+		{"-snov-key <key>",      "Snov.io API key (overrides config file)"},
+		{"-rocketreach-key <k>", "RocketReach API key (overrides config file)"},
+		{"-prospeo-key <key>",   "Prospeo API key (overrides config file)"},
+		{"-findymail-key <key>", "FindyMail API key (overrides config file)"},
+		{"-contactout-key <k>",  "ContactOut API key (overrides config file)"},
+		{"--no-hunter",          "Disable Hunter.io module"},
+		{"--no-snov",            "Disable Snov.io module"},
+		{"--no-rocketreach",     "Disable RocketReach module"},
+		{"--no-prospeo",         "Disable Prospeo module"},
+		{"--no-findymail",       "Disable FindyMail module"},
+		{"--no-contactout",      "Disable ContactOut module"},
+		{"--no-web",             "Disable web crawler module"},
+		{"--no-dork",            "Disable dork search module"},
+		{"--no-cert",            "Disable crt.sh module"},
 	}
 	for _, f := range flags {
-		green.Printf("    %-22s", f[0])
+		green.Printf("    %-24s", f[0])
 		fmt.Println(" " + f[1])
 	}
 
 	fmt.Println()
 	cyan.Println("  CONFIG FILE:")
 	cfgPath, _ := config.ConfigPath()
-	green.Printf("    %-22s", "Path:")
+	green.Printf("    %-24s", "Path:")
 	fmt.Println(" " + cfgPath)
-	green.Printf("    %-22s", "Auto-created:")
+	green.Printf("    %-24s", "Auto-created:")
 	fmt.Println(" yes — generated on first run if missing")
-	green.Printf("    %-22s", "Keys:")
-	fmt.Println(" HUNTER_API_KEY, SNOV_API_KEY")
+	green.Printf("    %-24s", "Keys:")
+	fmt.Println(" HUNTER_API_KEY, SNOV_API_KEY, ROCKETREACH_API_KEY, PROSPEO_API_KEY, FINDYMAIL_API_KEY, CONTACTOUT_API_KEY")
 
 	fmt.Println()
 	cyan.Println("  EXAMPLES:")
@@ -242,6 +322,5 @@ func usage() {
 	fmt.Println("    email-hunter -d example.com -o results.json")
 	fmt.Println("    email-hunter -d example.com --no-web --no-dork    # API-only, fastest")
 	fmt.Println("    email-hunter -d example.com --no-hunter --no-snov # free modules only")
-	fmt.Println("    email-hunter -d example.com -hunter-key MY_KEY    # override config")
 	fmt.Println()
 }

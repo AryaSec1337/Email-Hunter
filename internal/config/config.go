@@ -30,8 +30,12 @@ const defaultTemplate = `# =====================================================
 #  Fill in your API keys below, then re-run the tool.
 #
 #  Get your keys at:
-#    Hunter.io  -> https://hunter.io/api-keys
-#    Snov.io    -> https://app.snov.io/account?settings=api
+#    Hunter.io    -> https://hunter.io/api-keys
+#    Snov.io      -> https://app.snov.io/account?settings=api
+#    RocketReach  -> https://rocketreach.co/api
+#    Prospeo      -> https://prospeo.io/
+#    FindyMail    -> https://app.findymail.com/
+#    ContactOut   -> https://contactout.com/
 # ============================================================
 
 # Hunter.io API Key
@@ -39,12 +43,28 @@ HUNTER_API_KEY=
 
 # Snov.io API Key
 SNOV_API_KEY=
+
+# RocketReach API Key
+ROCKETREACH_API_KEY=
+
+# Prospeo API Key
+PROSPEO_API_KEY=
+
+# FindyMail API Key
+FINDYMAIL_API_KEY=
+
+# ContactOut API Key
+CONTACTOUT_API_KEY=
 `
 
 // Config holds all loaded configuration values.
 type Config struct {
-	HunterAPIKey string
-	SnovAPIKey   string
+	HunterAPIKey      string
+	SnovAPIKey        string
+	RocketReachAPIKey string
+	ProspeoAPIKey     string
+	FindyMailAPIKey   string
+	ContactOutAPIKey  string
 }
 
 // SetupResult describes what happened during Setup().
@@ -148,6 +168,14 @@ func Load() (*Config, error) {
 			cfg.HunterAPIKey = val
 		case "SNOV_API_KEY":
 			cfg.SnovAPIKey = val
+		case "ROCKETREACH_API_KEY":
+			cfg.RocketReachAPIKey = val
+		case "PROSPEO_API_KEY":
+			cfg.ProspeoAPIKey = val
+		case "FINDYMAIL_API_KEY":
+			cfg.FindyMailAPIKey = val
+		case "CONTACTOUT_API_KEY":
+			cfg.ContactOutAPIKey = val
 		}
 	}
 
@@ -159,8 +187,7 @@ func Load() (*Config, error) {
 }
 
 // PrintStatus prints which keys were loaded and warns about missing ones.
-// missingModules lists modules that are enabled but have no key.
-func PrintStatus(cfg *Config, noHunter, noSnov bool) {
+func PrintStatus(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, noFindyMail, noContactOut bool) {
 	path, _ := ConfigPath()
 	cyan   := color.New(color.FgCyan, color.Bold)
 	green  := color.New(color.FgGreen)
@@ -172,7 +199,7 @@ func PrintStatus(cfg *Config, noHunter, noSnov bool) {
 
 	printKey := func(label, val string, disabled bool) {
 		cyan.Printf("  [*] ")
-		fmt.Printf("  %-18s ", label+":")
+		fmt.Printf("  %-20s ", label+":")
 		switch {
 		case disabled:
 			dim.Println("disabled (--no-* flag)")
@@ -183,14 +210,18 @@ func PrintStatus(cfg *Config, noHunter, noSnov bool) {
 		}
 	}
 
-	printKey("HUNTER_API_KEY", cfg.HunterAPIKey, noHunter)
-	printKey("SNOV_API_KEY",   cfg.SnovAPIKey,   noSnov)
+	printKey("HUNTER_API_KEY",      cfg.HunterAPIKey,      noHunter)
+	printKey("SNOV_API_KEY",        cfg.SnovAPIKey,        noSnov)
+	printKey("ROCKETREACH_API_KEY", cfg.RocketReachAPIKey, noRocketReach)
+	printKey("PROSPEO_API_KEY",     cfg.ProspeoAPIKey,     noProspeo)
+	printKey("FINDYMAIL_API_KEY",   cfg.FindyMailAPIKey,   noFindyMail)
+	printKey("CONTACTOUT_API_KEY",  cfg.ContactOutAPIKey,  noContactOut)
 }
 
 // WarnMissingKeys prints actionable warnings for any enabled module
 // whose API key is still empty after merging CLI flags + config file.
 // Returns true if at least one API key is missing for an enabled module.
-func WarnMissingKeys(cfg *Config, noHunter, noSnov bool) bool {
+func WarnMissingKeys(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, noFindyMail, noContactOut bool) bool {
 	path, _ := ConfigPath()
 	yellow := color.New(color.FgYellow, color.Bold)
 	dim    := color.New(color.FgHiBlack)
@@ -209,11 +240,23 @@ func WarnMissingKeys(cfg *Config, noHunter, noSnov bool) bool {
 	if !noSnov && cfg.SnovAPIKey == "" {
 		warn("Snov.io", "SNOV_API_KEY")
 	}
+	if !noRocketReach && cfg.RocketReachAPIKey == "" {
+		warn("RocketReach", "ROCKETREACH_API_KEY")
+	}
+	if !noProspeo && cfg.ProspeoAPIKey == "" {
+		warn("Prospeo", "PROSPEO_API_KEY")
+	}
+	if !noFindyMail && cfg.FindyMailAPIKey == "" {
+		warn("FindyMail", "FINDYMAIL_API_KEY")
+	}
+	if !noContactOut && cfg.ContactOutAPIKey == "" {
+		warn("ContactOut", "CONTACTOUT_API_KEY")
+	}
 
 	if warned {
 		fmt.Println()
 		yellow.Println("  [!] API modules with missing keys will be skipped automatically.")
-		dim.Println("      Use --no-hunter / --no-snov to suppress these warnings.")
+		dim.Println("      Use --no-<module> to suppress these warnings.")
 		fmt.Println()
 	}
 
