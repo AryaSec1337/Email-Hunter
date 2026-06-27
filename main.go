@@ -12,18 +12,24 @@ import (
 	"github.com/AryaSec1337/Email-Hunter/internal/crawler"
 	"github.com/AryaSec1337/Email-Hunter/internal/crtsh"
 	"github.com/AryaSec1337/Email-Hunter/internal/google"
+	"github.com/AryaSec1337/Email-Hunter/internal/hunterio"
 	"github.com/AryaSec1337/Email-Hunter/internal/output"
+	"github.com/AryaSec1337/Email-Hunter/internal/snovio"
 )
 
 func main() {
 	// ── CLI Flags ─────────────────────────────────────────────────────────────
-	domain    := flag.String("d", "", "Target domain to hunt emails from (e.g. example.com)")
-	maxPages  := flag.Int("p", 50, "Maximum number of pages to crawl")
-	maxDepth  := flag.Int("depth", 3, "Maximum crawl depth")
-	outFile   := flag.String("o", "", "Output file path (extension determines format: .txt .json .csv)")
-	noWeb     := flag.Bool("no-web", false, "Skip web crawling")
-	noDork    := flag.Bool("no-dork", false, "Skip search engine dorking")
-	noCert    := flag.Bool("no-cert", false, "Skip crt.sh certificate lookup")
+	domain     := flag.String("d", "", "Target domain to hunt emails from (e.g. example.com)")
+	maxPages   := flag.Int("p", 50, "Maximum number of pages to crawl")
+	maxDepth   := flag.Int("depth", 3, "Maximum crawl depth")
+	outFile    := flag.String("o", "", "Output file path (extension determines format: .txt .json .csv)")
+	noWeb      := flag.Bool("no-web", false, "Skip web crawling")
+	noDork     := flag.Bool("no-dork", false, "Skip search engine dorking")
+	noCert     := flag.Bool("no-cert", false, "Skip crt.sh certificate lookup")
+	noHunter   := flag.Bool("no-hunter", false, "Skip Hunter.io API")
+	noSnov     := flag.Bool("no-snov", false, "Skip Snov.io API")
+	hunterKey  := flag.String("hunter-key", "", "Hunter.io API key")
+	snovKey    := flag.String("snov-key", "", "Snov.io API key")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -51,6 +57,20 @@ func main() {
 	fmt.Println()
 
 	var allResults []output.Result
+
+	// ── Module: Hunter.io API ─────────────────────────────────────────────────
+	if !*noHunter {
+		hunterResults := hunterio.Search(*domain, *hunterKey)
+		allResults = append(allResults, hunterResults...)
+		fmt.Println()
+	}
+
+	// ── Module: Snov.io API ───────────────────────────────────────────────────
+	if !*noSnov {
+		snovResults := snovio.Search(*domain, *snovKey)
+		allResults = append(allResults, snovResults...)
+		fmt.Println()
+	}
 
 	// ── Module: crt.sh ────────────────────────────────────────────────────────
 	if !*noCert {
@@ -119,16 +139,20 @@ func usage() {
 	cyan.Println("  OPTIONS:")
 
 	flags := [][]string{
-		{"-d <domain>",    "Target domain (required)"},
-		{"-o <file>",      "Output file (.txt / .json / .csv)"},
-		{"-p <int>",       "Max pages to crawl (default: 50)"},
-		{"-depth <int>",   "Crawl depth (default: 3)"},
-		{"--no-web",       "Disable web crawler module"},
-		{"--no-dork",      "Disable dork search module"},
-		{"--no-cert",      "Disable crt.sh module"},
+		{"-d <domain>",       "Target domain (required)"},
+		{"-o <file>",         "Output file (.txt / .json / .csv)"},
+		{"-p <int>",          "Max pages to crawl (default: 50)"},
+		{"-depth <int>",      "Crawl depth (default: 3)"},
+		{"-hunter-key <key>", "Hunter.io API key"},
+		{"-snov-key <key>",   "Snov.io API key"},
+		{"--no-hunter",       "Disable Hunter.io module"},
+		{"--no-snov",         "Disable Snov.io module"},
+		{"--no-web",          "Disable web crawler module"},
+		{"--no-dork",         "Disable dork search module"},
+		{"--no-cert",         "Disable crt.sh module"},
 	}
 	for _, f := range flags {
-		green.Printf("    %-18s", f[0])
+		green.Printf("    %-22s", f[0])
 		fmt.Println(" " + f[1])
 	}
 
@@ -136,6 +160,8 @@ func usage() {
 	cyan.Println("  EXAMPLES:")
 	fmt.Println("    email-hunter -d example.com")
 	fmt.Println("    email-hunter -d example.com -o results.json")
-	fmt.Println("    email-hunter -d example.com -p 100 --no-dork")
+	fmt.Println("    email-hunter -d example.com -hunter-key YOUR_KEY -snov-key YOUR_KEY")
+	fmt.Println("    email-hunter -d example.com -hunter-key YOUR_KEY --no-web --no-dork")
+	fmt.Println("    email-hunter -d example.com -p 100 --no-dork --no-hunter --no-snov")
 	fmt.Println()
 }
