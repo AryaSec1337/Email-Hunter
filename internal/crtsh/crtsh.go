@@ -43,11 +43,22 @@ func Lookup(domain string, seen *output.SeenSet) ([]string, []output.Result) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		color.New(color.FgRed).Printf("  [-] crt.sh is currently overloaded or returned HTTP %d\n", resp.StatusCode)
+		return nil, nil
+	}
+
 	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if strings.HasPrefix(bodyStr, "<") || !strings.HasPrefix(bodyStr, "[") {
+		color.New(color.FgRed).Println("  [-] crt.sh is temporarily overloaded (returned HTML/error page)")
+		return nil, nil
+	}
 
 	var entries []crtEntry
 	if err := json.Unmarshal(body, &entries); err != nil {
-		color.New(color.FgRed).Printf("  [-] Failed to parse crt.sh response\n")
+		color.New(color.FgRed).Printf("  [-] Failed to parse crt.sh response: %v\n", err)
 		return nil, nil
 	}
 

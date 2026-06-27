@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	searchURL  = "https://app.findymail.com/api/search/employees"
+	searchURL  = "https://app.findymail.com/api/search/domain"
 	accountURL = "https://app.findymail.com/api/credits"
 )
 

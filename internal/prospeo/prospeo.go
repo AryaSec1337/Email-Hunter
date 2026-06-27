@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	searchURL  = "https://api.prospeo.io/domain-email-search"
+	searchURL  = "https://api.prospeo.io/domain-search"
 	accountURL = "https://api.prospeo.io/account-information"
 )
 
