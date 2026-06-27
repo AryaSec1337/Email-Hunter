@@ -4,9 +4,9 @@ email-hunter.exe
 *.exe
 *.out
 
-# Output files
-output/
-results/
+# Output files (scan results saved by the tool — root level only)
+/output/
+/results/
 
 # IDE
 .vscode/
