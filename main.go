@@ -9,6 +9,7 @@ import (
 	"github.com/fatih/color"
 
 	"github.com/AryaSec1337/Email-Hunter/internal/banner"
+	"github.com/AryaSec1337/Email-Hunter/internal/config"
 	"github.com/AryaSec1337/Email-Hunter/internal/crawler"
 	"github.com/AryaSec1337/Email-Hunter/internal/crtsh"
 	"github.com/AryaSec1337/Email-Hunter/internal/google"
@@ -35,6 +36,23 @@ func main() {
 
 	// ── Banner ────────────────────────────────────────────────────────────────
 	banner.Print()
+
+	// ── Load Config File ──────────────────────────────────────────────────────
+	// Priority: CLI flag > config file > empty (module will warn)
+	cfg, cfgErr := config.Load()
+	if cfgErr != nil {
+		color.New(color.FgYellow).Printf("  [!] Config warning: %v\n", cfgErr)
+	}
+	config.PrintStatus(cfg)
+	fmt.Println()
+
+	// Merge: CLI flag wins if explicitly provided, otherwise fall back to config file
+	if *hunterKey == "" {
+		*hunterKey = cfg.HunterAPIKey
+	}
+	if *snovKey == "" {
+		*snovKey = cfg.SnovAPIKey
+	}
 
 	// ── Validate ──────────────────────────────────────────────────────────────
 	if *domain == "" {
@@ -157,11 +175,21 @@ func usage() {
 	}
 
 	fmt.Println()
+	cyan.Println("  CONFIG FILE:")
+	configPath, _ := config.ConfigPath()
+	green.Printf("    %-22s", "Path:")
+	fmt.Println(" " + configPath)
+	green.Printf("    %-22s", "Format:")
+	fmt.Println(" KEY=value  (see .config-emailhunter.example)")
+	green.Printf("    %-22s", "Keys:")
+	fmt.Println(" HUNTER_API_KEY, SNOV_API_KEY")
+
+	fmt.Println()
 	cyan.Println("  EXAMPLES:")
 	fmt.Println("    email-hunter -d example.com")
 	fmt.Println("    email-hunter -d example.com -o results.json")
-	fmt.Println("    email-hunter -d example.com -hunter-key YOUR_KEY -snov-key YOUR_KEY")
-	fmt.Println("    email-hunter -d example.com -hunter-key YOUR_KEY --no-web --no-dork")
-	fmt.Println("    email-hunter -d example.com -p 100 --no-dork --no-hunter --no-snov")
+	fmt.Println("    email-hunter -d example.com -hunter-key YOUR_KEY  # overrides config file")
+	fmt.Println("    email-hunter -d example.com --no-web --no-dork    # API-only mode")
+	fmt.Println("    email-hunter -d example.com -p 100 --no-hunter --no-snov")
 	fmt.Println()
 }

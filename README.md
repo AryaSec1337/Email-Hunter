@@ -25,9 +25,11 @@
 
 | Module | Description |
 |--------|-------------|
-| 🌐 **Web Crawler** | Concurrently crawls target domain pages to extract email addresses |
-| 🔍 **Dork Search** | Queries DuckDuckGo with OSINT dorks to find exposed emails |
+| 🔑 **Hunter.io API** | Queries Hunter.io domain-search API — returns emails with confidence scores |
+| 📬 **Snov.io API** | Async Snov.io domain-search — polls until complete, follows pagination |
 | 📜 **crt.sh Lookup** | Enumerates subdomains via Certificate Transparency logs |
+| 🔍 **Dork Search** | Queries DuckDuckGo with OSINT dorks to find exposed emails |
+| 🌐 **Web Crawler** | Concurrently crawls target domain pages to extract email addresses |
 | 💾 **Multi-format Output** | Save results as `.txt`, `.json`, or `.csv` |
 | ⚡ **Concurrent** | Multi-goroutine crawling for fast results |
 | 🎨 **Colorized Output** | Beautiful terminal output with ASCII banner |
@@ -50,6 +52,51 @@ go build -o email-hunter .
 
 ---
 
+## 🔑 Configuration File (Recommended)
+
+Store your API keys in a config file so you never have to pass them on the command line.
+
+### Location
+
+| OS | Path |
+|----|------|
+| Linux / macOS | `~/.config/.config-emailhunter` |
+| Windows | `%USERPROFILE%\.config\.config-emailhunter` |
+
+### Setup
+
+```bash
+# Linux / macOS
+mkdir -p ~/.config
+cp .config-emailhunter.example ~/.config/.config-emailhunter
+nano ~/.config/.config-emailhunter
+```
+
+```powershell
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.config"
+Copy-Item .config-emailhunter.example "$env:USERPROFILE\.config\.config-emailhunter"
+notepad "$env:USERPROFILE\.config\.config-emailhunter"
+```
+
+### File Format
+
+```ini
+# Email-Hunter Configuration File
+# Lines starting with '#' are comments
+
+# Hunter.io API Key  →  https://hunter.io/api-keys
+HUNTER_API_KEY=your_hunter_api_key_here
+
+# Snov.io API Key  →  https://app.snov.io/account?settings=api
+SNOV_API_KEY=your_snov_api_key_here
+```
+
+> **Priority rule:** If you also pass `-hunter-key` or `-snov-key` on the command line,  
+> the CLI flag **always wins** over the config file value.
+
+---
+
 ## 🚀 Usage
 
 ```
@@ -64,6 +111,10 @@ email-hunter -d <domain> [options]
 | `-o <file>` | Output file (`.txt` / `.json` / `.csv`) | — |
 | `-p <int>` | Max pages to crawl | `50` |
 | `-depth <int>` | Crawl depth | `3` |
+| `-hunter-key <key>` | Hunter.io API key *(overrides config file)* | — |
+| `-snov-key <key>` | Snov.io API key *(overrides config file)* | — |
+| `--no-hunter` | Disable Hunter.io module | — |
+| `--no-snov` | Disable Snov.io module | — |
 | `--no-web` | Disable web crawler module | — |
 | `--no-dork` | Disable dork search module | — |
 | `--no-cert` | Disable crt.sh module | — |
@@ -71,20 +122,23 @@ email-hunter -d <domain> [options]
 ### Examples
 
 ```bash
-# Basic scan
+# Basic scan (reads API keys from ~/.config/.config-emailhunter automatically)
 ./email-hunter -d example.com
 
 # Save results as JSON
 ./email-hunter -d example.com -o results.json
 
-# Crawl more pages, skip dork search
-./email-hunter -d example.com -p 100 --no-dork
+# API-only mode (fastest, no crawling)
+./email-hunter -d example.com --no-web --no-dork --no-cert
+
+# Override config file key on-the-fly
+./email-hunter -d example.com -hunter-key MY_OTHER_KEY
+
+# Free modules only (no API keys needed)
+./email-hunter -d example.com --no-hunter --no-snov
 
 # Save as CSV, skip web crawling
 ./email-hunter -d example.com -o emails.csv --no-web
-
-# Only use crt.sh (fastest)
-./email-hunter -d example.com --no-web --no-dork
 ```
 
 ---
@@ -92,12 +146,24 @@ email-hunter -d <domain> [options]
 ## 📊 Output Example
 
 ```
-[+] admin@example.com             [web-crawl]
-[+] contact@example.com           [dork-search]
-[+] support@mail.example.com      [crt.sh]
+  [*] Config file: /home/user/.config/.config-emailhunter
+  [*] HUNTER_API_KEY:    loaded (abcd****efgh)
+  [*] SNOV_API_KEY:      loaded (1234****5678)
 
-[*] Scan complete for domain: example.com
-[*] Total unique emails found: 3
+  [*] Target domain : example.com
+
+  [*] Querying Hunter.io API...
+  [+] admin@example.com                     [hunter.io (conf:95%)]
+  [+] contact@example.com                   [hunter.io (conf:78%)]
+  [*] Hunter.io returned 2 emails
+
+  [*] Querying Snov.io API...
+  [*] Snov.io task started (hash: 6f15de14db95...)
+  [+] support@example.com                   [snov.io]
+  [*] Snov.io returned 1 emails
+
+  [*] Scan complete for domain: example.com
+  [*] Total unique emails found: 3
 ```
 
 ---
@@ -106,13 +172,17 @@ email-hunter -d <domain> [options]
 
 ```
 Email-Hunter/
-├── main.go                  # Entry point, CLI flag parsing
+├── main.go                       # Entry point, CLI flag parsing
+├── .config-emailhunter.example   # Config file template
 ├── internal/
-│   ├── banner/              # ASCII art + colored terminal output
-│   ├── crawler/             # Concurrent HTTP web crawler
-│   ├── google/              # DuckDuckGo dork search module
-│   ├── crtsh/               # Certificate Transparency lookup
-│   └── output/              # Results formatting & file export
+│   ├── config/                   # Config file loader (~/.config/.config-emailhunter)
+│   ├── banner/                   # ASCII art + colored terminal output
+│   ├── hunterio/                 # Hunter.io domain search API
+│   ├── snovio/                   # Snov.io async domain search API
+│   ├── crawler/                  # Concurrent HTTP web crawler
+│   ├── google/                   # DuckDuckGo dork search module
+│   ├── crtsh/                    # Certificate Transparency lookup
+│   └── output/                   # Results formatting & file export
 └── go.mod
 ```
 

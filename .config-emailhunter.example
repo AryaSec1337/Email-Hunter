@@ -1,0 +1,18 @@
+# ============================================================
+#  Email-Hunter Configuration File
+#  Location: ~/.config/.config-emailhunter
+# ============================================================
+#
+# Lines starting with '#' are comments and will be ignored.
+# Format: KEY=value  (no spaces around '=')
+#
+# Get your keys at:
+#   Hunter.io  -> https://hunter.io/api-keys
+#   Snov.io    -> https://app.snov.io/account?settings=api
+# ============================================================
+
+# Hunter.io API Key
+HUNTER_API_KEY=your_hunter_api_key_here
+
+# Snov.io API Key
+SNOV_API_KEY=your_snov_api_key_here
