@@ -20,7 +20,10 @@ import (
 	"github.com/AryaSec1337/Email-Hunter/internal/prospeo"
 	"github.com/AryaSec1337/Email-Hunter/internal/findymail"
 	"github.com/AryaSec1337/Email-Hunter/internal/contactout"
+	"github.com/AryaSec1337/Email-Hunter/internal/update"
 )
+
+const currentVersion = "v1.2.0"
 
 func main() {
 	// ── CLI Flags ─────────────────────────────────────────────────────────────
@@ -28,6 +31,7 @@ func main() {
 	maxPages        := flag.Int("p", 50, "Maximum number of pages to crawl")
 	maxDepth        := flag.Int("depth", 3, "Maximum crawl depth")
 	outFile         := flag.String("o", "", "Output file path (extension determines format: .txt .json .csv)")
+	updateFlag      := flag.Bool("update", false, "Update Email-Hunter to the latest version")
 	
 	// Skip flags
 	noWeb           := flag.Bool("no-web", false, "Skip web crawling")
@@ -51,6 +55,16 @@ func main() {
 
 	flag.Usage = usage
 	flag.Parse()
+
+	// ── Handle Self-Update Flag ───────────────────────────────────────────────
+	if *updateFlag {
+		banner.Print()
+		if err := update.UpdateSelf(); err != nil {
+			color.New(color.FgRed, color.Bold).Printf("  [-] Update error: %v\n\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 
 	// ── Banner ────────────────────────────────────────────────────────────────
 	banner.Print()
@@ -157,6 +171,13 @@ func main() {
 
 	// ── Warn About Missing API Keys ───────────────────────────────────────────
 	config.WarnMissingKeys(cfg, *noHunter, *noSnov, *noRocketReach, *noProspeo, *noFindyMail, *noContactOut)
+
+	// ── Check Version Update ──────────────────────────────────────────────────
+	if latest, hasUpdate := update.CheckLatest(currentVersion); hasUpdate {
+		yellow.Printf("  [!] A new version of Email-Hunter is available: %s (Current: %s)\n", latest, currentVersion)
+		color.New(color.FgHiBlack).Println("      Run 'email-hunter -update' to update automatically.")
+		fmt.Println()
+	}
 
 	// ── Validate Domain ───────────────────────────────────────────────────────
 	if *domain == "" {
@@ -290,6 +311,7 @@ func usage() {
 		{"-o <file>",            "Output file (.txt / .json / .csv)"},
 		{"-p <int>",             "Max pages to crawl (default: 50)"},
 		{"-depth <int>",         "Crawl depth (default: 3)"},
+		{"-update",              "Update Email-Hunter to the latest version"},
 		{"-hunter-key <key>",    "Hunter.io API key (overrides config file)"},
 		{"-snov-id <id>",        "Snov.io API User ID (overrides config file)"},
 		{"-snov-secret <sec>",   "Snov.io API Secret (overrides config file)"},
