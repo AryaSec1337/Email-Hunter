@@ -30,7 +30,7 @@ func Print() {
 	fmt.Println(" Email-Hunter")
 
 	cyan.Printf("  %-14s", "Version  :")
-	yellow.Println(" v1.0.0")
+	yellow.Println(" v1.2.0")
 
 	cyan.Printf("  %-14s", "Author   :")
 	green.Println(" AryaSec1337")
