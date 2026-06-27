@@ -22,7 +22,7 @@ import (
 
 const (
 	searchURL  = "https://api.prospeo.io/domain-email-search"
-	accountURL = "https://api.prospeo.io/user-information"
+	accountURL = "https://api.prospeo.io/account-information"
 )
 
 // ── Account Info ──────────────────────────────────────────────────────────────

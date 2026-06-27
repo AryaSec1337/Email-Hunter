@@ -26,7 +26,7 @@ const (
 	tokenURL  = "https://api.snov.io/v1/oauth/access_token"
 	startURL  = "https://api.snov.io/v2/domain-search/start"
 	resultURL = "https://api.snov.io/v2/domain-search/domain-emails/result/%s"
-	meURL     = "https://api.snov.io/v2/me"
+	meURL     = "https://api.snov.io/v1/get-balance"
 
 	pollInterval = 3 * time.Second
 	maxPolls     = 20
@@ -36,28 +36,13 @@ const (
 
 // AccountInfo holds Snov.io account credentials and usage limits.
 type AccountInfo struct {
-	Email        string
-	Name         string
-	Plan         string
-	CreditsLeft  int
-	CreditsTotal int
-	CreditsUsed  int
+	UserID      string
+	CreditsLeft int
 }
 
 type meResponse struct {
-	Data struct {
-		Email        string `json:"email"`
-		Name         string `json:"name"`
-		Plan         string `json:"plan"`
-		CreditsLeft  int    `json:"credits_left"`
-		CreditsTotal int    `json:"credits_total"`
-		CreditsUsed  int    `json:"credits_used"`
-	} `json:"data"`
-	Email        string `json:"email"`
-	Name         string `json:"name"`
-	Plan         string `json:"plan"`
-	CreditsLeft  int    `json:"credits_left"`
-	CreditsTotal int    `json:"credits_total"`
+	Success bool `json:"success"`
+	Balance int  `json:"balance"`
 }
 
 // ── Response types ────────────────────────────────────────────────────────────
@@ -184,34 +169,20 @@ func GetAccountInfo(userID, apiSecret string) *AccountInfo {
 		return nil
 	}
 
-	info := &AccountInfo{}
-	if parsed.Data.Email != "" {
-		info.Email        = parsed.Data.Email
-		info.Name         = parsed.Data.Name
-		info.Plan         = parsed.Data.Plan
-		info.CreditsLeft  = parsed.Data.CreditsLeft
-		info.CreditsTotal = parsed.Data.CreditsTotal
-		info.CreditsUsed  = parsed.Data.CreditsUsed
-	} else {
-		info.Email        = parsed.Email
-		info.Name         = parsed.Name
-		info.Plan         = parsed.Plan
-		info.CreditsLeft  = parsed.CreditsLeft
-		info.CreditsTotal = parsed.CreditsTotal
-	}
-
-	if info.Email == "" {
-		red.Println("  [-] Snov.io account: no user data in response")
+	if !parsed.Success {
+		red.Println("  [-] Snov.io account request unsuccessful")
 		return nil
 	}
 
-	return info
+	return &AccountInfo{
+		UserID:      userID,
+		CreditsLeft: parsed.Balance,
+	}
 }
 
 // PrintAccountInfo displays Snov.io account details in a formatted box.
 func PrintAccountInfo(info *AccountInfo) {
 	cyan   := color.New(color.FgCyan, color.Bold)
-	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
 	dim    := color.New(color.FgHiBlack)
 
@@ -230,18 +201,8 @@ func PrintAccountInfo(info *AccountInfo) {
 		return
 	}
 
-	row("Account", info.Email+"  ("+info.Name+")")
-	if info.Plan != "" {
-		row("Plan", green.Sprint(info.Plan))
-	}
-
-	if info.CreditsTotal > 0 {
-		bar := limitBar(info.CreditsUsed, info.CreditsTotal)
-		row("Credits", fmt.Sprintf("%d / %d used  %s  (%d remaining)",
-			info.CreditsUsed, info.CreditsTotal, bar, info.CreditsLeft))
-	} else if info.CreditsLeft > 0 {
-		row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
-	}
+	row("Account", info.UserID+"  (API Client ID)")
+	row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
 
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }

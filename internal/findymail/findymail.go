@@ -21,33 +21,18 @@ import (
 
 const (
 	searchURL  = "https://app.findymail.com/api/search/employees"
-	accountURL = "https://app.findymail.com/api/me"
+	accountURL = "https://app.findymail.com/api/credits"
 )
 
 // ── Account Info ──────────────────────────────────────────────────────────────
 
-// AccountInfo holds FindyMail account credentials and usage limits.
+// AccountInfo holds FindyMail usage limits.
 type AccountInfo struct {
-	Name          string
-	Email         string
-	Plan          string
-	CreditsLeft   int
-	CreditsTotal  int
+	CreditsLeft  int
 }
 
 type accountResp struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Plan  struct {
-		Name string `json:"name"`
-	} `json:"plan"`
-	Credits struct {
-		Left  int `json:"left"`
-		Total int `json:"total"`
-	} `json:"credits"`
-	// Flat format fallback
-	CreditsLeft  int    `json:"credits_left"`
-	CreditsTotal int    `json:"credits_total"`
+	Credits int `json:"credits"`
 }
 
 // ── Search Response ────────────────────────────────────────────────────────────
@@ -94,7 +79,7 @@ func doRequest(client *http.Client, method, url, apiKey string, payload interfac
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// GetAccountInfo fetches FindyMail account credentials and credit limits.
+// GetAccountInfo fetches FindyMail credit limits.
 func GetAccountInfo(apiKey string) *AccountInfo {
 	if apiKey == "" {
 		return nil
@@ -115,31 +100,14 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 		return nil
 	}
 
-	info := &AccountInfo{
-		Name:  parsed.Name,
-		Email: parsed.Email,
-		Plan:  parsed.Plan.Name,
+	return &AccountInfo{
+		CreditsLeft: parsed.Credits,
 	}
-	// Prefer nested credits, fall back to flat fields
-	if parsed.Credits.Total > 0 {
-		info.CreditsLeft  = parsed.Credits.Left
-		info.CreditsTotal = parsed.Credits.Total
-	} else {
-		info.CreditsLeft  = parsed.CreditsLeft
-		info.CreditsTotal = parsed.CreditsTotal
-	}
-
-	if info.Email == "" {
-		red.Println("  [-] FindyMail account: no user data in response")
-		return nil
-	}
-	return info
 }
 
 // PrintAccountInfo displays FindyMail account details in a formatted box.
 func PrintAccountInfo(info *AccountInfo) {
 	cyan   := color.New(color.FgCyan, color.Bold)
-	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
 	dim    := color.New(color.FgHiBlack)
 
@@ -155,17 +123,7 @@ func PrintAccountInfo(info *AccountInfo) {
 		dim.Println("  └─────────────────────────────────────────────────────────────")
 		return
 	}
-	row("Account", info.Email+"  ("+info.Name+")")
-	if info.Plan != "" {
-		row("Plan", green.Sprint(info.Plan))
-	}
-	if info.CreditsTotal > 0 {
-		bar := limitBar(info.CreditsTotal-info.CreditsLeft, info.CreditsTotal)
-		row("Credits", fmt.Sprintf("%d / %d used  %s  (%d remaining)",
-			info.CreditsTotal-info.CreditsLeft, info.CreditsTotal, bar, info.CreditsLeft))
-	} else if info.CreditsLeft > 0 {
-		row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
-	}
+	row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }
 

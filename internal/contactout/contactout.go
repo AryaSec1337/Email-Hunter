@@ -89,35 +89,19 @@ func doRequest(client *http.Client, method, url, apiKey string, payload interfac
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// GetAccountInfo fetches ContactOut account credentials and credit status.
+// GetAccountInfo simply checks if the key is provided and returns a placeholder info struct.
 func GetAccountInfo(apiKey string) *AccountInfo {
 	if apiKey == "" {
 		return nil
 	}
-	red := color.New(color.FgRed)
-	b, status, err := doRequest(newClient(), "GET", accountURL, apiKey, nil)
-	if err != nil {
-		red.Printf("  [-] ContactOut account fetch error: %v\n", err)
-		return nil
-	}
-	if status != http.StatusOK {
-		red.Printf("  [-] ContactOut account: HTTP %d\n", status)
-		return nil
-	}
-	var parsed accountResp
-	if err := json.Unmarshal(b, &parsed); err != nil {
-		red.Printf("  [-] ContactOut account parse error: %v\n", err)
-		return nil
-	}
+	// Return a placeholder since ContactOut has no public user info endpoint
 	return &AccountInfo{
-		Email:        parsed.Email,
-		Name:         parsed.Name,
-		CreditsLeft:  parsed.CreditsLeft,
-		CreditsTotal: parsed.CreditsTotal,
+		Email: "Active Session",
+		Name:  "API Token Loaded",
 	}
 }
 
-// PrintAccountInfo displays ContactOut account details in a formatted box.
+// PrintAccountInfo displays ContactOut active status.
 func PrintAccountInfo(info *AccountInfo) {
 	cyan   := color.New(color.FgCyan, color.Bold)
 	yellow := color.New(color.FgYellow)
@@ -135,14 +119,7 @@ func PrintAccountInfo(info *AccountInfo) {
 		dim.Println("  └─────────────────────────────────────────────────────────────")
 		return
 	}
-	row("Account", info.Email+"  ("+info.Name+")")
-	if info.CreditsTotal > 0 {
-		bar := limitBar(info.CreditsTotal-info.CreditsLeft, info.CreditsTotal)
-		row("Credits", fmt.Sprintf("%d / %d used  %s  (%d remaining)",
-			info.CreditsTotal-info.CreditsLeft, info.CreditsTotal, bar, info.CreditsLeft))
-	} else if info.CreditsLeft > 0 {
-		row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
-	}
+	row("Status", "API Token Loaded (Usage details not exposed by API)")
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }
 
