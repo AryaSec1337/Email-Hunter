@@ -20,33 +20,55 @@ import (
 
 func main() {
 	// ── CLI Flags ─────────────────────────────────────────────────────────────
-	domain     := flag.String("d", "", "Target domain to hunt emails from (e.g. example.com)")
-	maxPages   := flag.Int("p", 50, "Maximum number of pages to crawl")
-	maxDepth   := flag.Int("depth", 3, "Maximum crawl depth")
-	outFile    := flag.String("o", "", "Output file path (extension determines format: .txt .json .csv)")
-	noWeb      := flag.Bool("no-web", false, "Skip web crawling")
-	noDork     := flag.Bool("no-dork", false, "Skip search engine dorking")
-	noCert     := flag.Bool("no-cert", false, "Skip crt.sh certificate lookup")
-	noHunter   := flag.Bool("no-hunter", false, "Skip Hunter.io API")
-	noSnov     := flag.Bool("no-snov", false, "Skip Snov.io API")
-	hunterKey  := flag.String("hunter-key", "", "Hunter.io API key")
-	snovKey    := flag.String("snov-key", "", "Snov.io API key")
+	domain    := flag.String("d", "", "Target domain to hunt emails from (e.g. example.com)")
+	maxPages  := flag.Int("p", 50, "Maximum number of pages to crawl")
+	maxDepth  := flag.Int("depth", 3, "Maximum crawl depth")
+	outFile   := flag.String("o", "", "Output file path (extension determines format: .txt .json .csv)")
+	noWeb     := flag.Bool("no-web", false, "Skip web crawling")
+	noDork    := flag.Bool("no-dork", false, "Skip search engine dorking")
+	noCert    := flag.Bool("no-cert", false, "Skip crt.sh certificate lookup")
+	noHunter  := flag.Bool("no-hunter", false, "Skip Hunter.io API")
+	noSnov    := flag.Bool("no-snov", false, "Skip Snov.io API")
+	hunterKey := flag.String("hunter-key", "", "Hunter.io API key (overrides config file)")
+	snovKey   := flag.String("snov-key", "", "Snov.io API key (overrides config file)")
 	flag.Usage = usage
 	flag.Parse()
 
 	// ── Banner ────────────────────────────────────────────────────────────────
 	banner.Print()
 
-	// ── Load Config File ──────────────────────────────────────────────────────
-	// Priority: CLI flag > config file > empty (module will warn)
+	// ── Auto-setup Config File ────────────────────────────────────────────────
+	// On first run: creates ~/.config/ and ~/.config/.config-emailhunter automatically.
+	cyan   := color.New(color.FgCyan, color.Bold)
+	green  := color.New(color.FgGreen, color.Bold)
+	yellow := color.New(color.FgYellow, color.Bold)
+	red    := color.New(color.FgRed, color.Bold)
+
+	result, cfgPath, setupErr := config.Setup()
+	switch result {
+	case config.SetupCreated:
+		green.Printf("  [+] ")
+		fmt.Println("Config file created for the first time!")
+		cyan.Printf("  [*] ")
+		fmt.Printf("Location : %s\n", cfgPath)
+		yellow.Println("  [!] Please fill in your API keys in the config file, then re-run.")
+		yellow.Printf("  [!] File: %s\n\n", cfgPath)
+
+	case config.SetupFailed:
+		yellow.Printf("  [!] Could not create config file: %v\n\n", setupErr)
+
+	case config.SetupAlreadyExists:
+		// Normal run — config already present, nothing to announce
+	}
+
+	// ── Load Config Values ────────────────────────────────────────────────────
+	// Priority: CLI flag > config file > empty
 	cfg, cfgErr := config.Load()
 	if cfgErr != nil {
-		color.New(color.FgYellow).Printf("  [!] Config warning: %v\n", cfgErr)
+		yellow.Printf("  [!] Config load warning: %v\n", cfgErr)
 	}
-	config.PrintStatus(cfg)
-	fmt.Println()
 
-	// Merge: CLI flag wins if explicitly provided, otherwise fall back to config file
+	// Merge: CLI flag wins; fall back to config file value
 	if *hunterKey == "" {
 		*hunterKey = cfg.HunterAPIKey
 	}
@@ -54,9 +76,19 @@ func main() {
 		*snovKey = cfg.SnovAPIKey
 	}
 
-	// ── Validate ──────────────────────────────────────────────────────────────
+	// Reflect merged state back into cfg so PrintStatus shows the right values
+	cfg.HunterAPIKey = *hunterKey
+	cfg.SnovAPIKey   = *snovKey
+
+	// ── Print Config Status ───────────────────────────────────────────────────
+	config.PrintStatus(cfg, *noHunter, *noSnov)
+
+	// ── Warn About Missing API Keys ───────────────────────────────────────────
+	config.WarnMissingKeys(cfg, *noHunter, *noSnov)
+
+	// ── Validate Domain ───────────────────────────────────────────────────────
 	if *domain == "" {
-		color.New(color.FgRed, color.Bold).Println("  [!] Error: -d <domain> is required\n")
+		red.Println("  [!] Error: -d <domain> is required\n")
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -65,9 +97,6 @@ func main() {
 	*domain = strings.TrimPrefix(*domain, "http://")
 	*domain = strings.TrimPrefix(*domain, "https://")
 	*domain = strings.TrimSuffix(*domain, "/")
-
-	yellow := color.New(color.FgYellow, color.Bold)
-	cyan   := color.New(color.FgCyan, color.Bold)
 
 	cyan.Printf("  [*] ")
 	fmt.Printf("Target domain : ")
@@ -119,7 +148,7 @@ func main() {
 	output.PrintSummary(allResults, *domain)
 
 	if len(allResults) == 0 {
-		color.New(color.FgYellow).Println("  [!] No emails found. Try different options or a different domain.")
+		yellow.Println("  [!] No emails found. Try different options or a different domain.")
 		return
 	}
 
@@ -136,16 +165,16 @@ func main() {
 		}
 
 		if err != nil {
-			color.New(color.FgRed).Printf("  [!] Failed to save output: %v\n", err)
+			red.Printf("  [!] Failed to save output: %v\n", err)
 		} else {
-			color.New(color.FgGreen, color.Bold).Printf("  [+] ")
+			green.Printf("  [+] ")
 			fmt.Printf("Results saved to: %s\n", *outFile)
 		}
 		fmt.Println()
 	}
 }
 
-// usage prints a pretty help message
+// usage prints a pretty help message.
 func usage() {
 	cyan  := color.New(color.FgCyan, color.Bold)
 	green := color.New(color.FgGreen, color.Bold)
@@ -161,8 +190,8 @@ func usage() {
 		{"-o <file>",         "Output file (.txt / .json / .csv)"},
 		{"-p <int>",          "Max pages to crawl (default: 50)"},
 		{"-depth <int>",      "Crawl depth (default: 3)"},
-		{"-hunter-key <key>", "Hunter.io API key"},
-		{"-snov-key <key>",   "Snov.io API key"},
+		{"-hunter-key <key>", "Hunter.io API key (overrides config file)"},
+		{"-snov-key <key>",   "Snov.io API key (overrides config file)"},
 		{"--no-hunter",       "Disable Hunter.io module"},
 		{"--no-snov",         "Disable Snov.io module"},
 		{"--no-web",          "Disable web crawler module"},
@@ -176,11 +205,11 @@ func usage() {
 
 	fmt.Println()
 	cyan.Println("  CONFIG FILE:")
-	configPath, _ := config.ConfigPath()
+	cfgPath, _ := config.ConfigPath()
 	green.Printf("    %-22s", "Path:")
-	fmt.Println(" " + configPath)
-	green.Printf("    %-22s", "Format:")
-	fmt.Println(" KEY=value  (see .config-emailhunter.example)")
+	fmt.Println(" " + cfgPath)
+	green.Printf("    %-22s", "Auto-created:")
+	fmt.Println(" yes — generated on first run if missing")
 	green.Printf("    %-22s", "Keys:")
 	fmt.Println(" HUNTER_API_KEY, SNOV_API_KEY")
 
@@ -188,8 +217,8 @@ func usage() {
 	cyan.Println("  EXAMPLES:")
 	fmt.Println("    email-hunter -d example.com")
 	fmt.Println("    email-hunter -d example.com -o results.json")
-	fmt.Println("    email-hunter -d example.com -hunter-key YOUR_KEY  # overrides config file")
-	fmt.Println("    email-hunter -d example.com --no-web --no-dork    # API-only mode")
-	fmt.Println("    email-hunter -d example.com -p 100 --no-hunter --no-snov")
+	fmt.Println("    email-hunter -d example.com --no-web --no-dork    # API-only, fastest")
+	fmt.Println("    email-hunter -d example.com --no-hunter --no-snov # free modules only")
+	fmt.Println("    email-hunter -d example.com -hunter-key MY_KEY    # override config")
 	fmt.Println()
 }

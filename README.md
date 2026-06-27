@@ -38,8 +38,6 @@
 
 ## 📦 Installation
 
-### From Source
-
 ```bash
 git clone https://github.com/AryaSec1337/Email-Hunter.git
 cd Email-Hunter
@@ -47,53 +45,74 @@ go mod tidy
 go build -o email-hunter .
 ```
 
-### Requirements
-- Go 1.21+
+> **Requirements:** Go 1.21+
 
 ---
 
-## 🔑 Configuration File (Recommended)
+## 🔑 Configuration File (Auto-Setup)
 
-Store your API keys in a config file so you never have to pass them on the command line.
+**No manual setup needed.** On the very first run, the tool automatically:
 
-### Location
+1. Creates the directory `~/.config/` (if it doesn't exist)
+2. Creates the file `~/.config/.config-emailhunter` with a ready-to-fill template
+
+You will see this on first run:
+
+```
+  [+] Config file created for the first time!
+  [*] Location : /home/user/.config/.config-emailhunter
+  [!] Please fill in your API keys in the config file, then re-run.
+```
+
+### Config File Location
 
 | OS | Path |
 |----|------|
 | Linux / macOS | `~/.config/.config-emailhunter` |
 | Windows | `%USERPROFILE%\.config\.config-emailhunter` |
 
-### Setup
+### Config File Format
 
-```bash
-# Linux / macOS
-mkdir -p ~/.config
-cp .config-emailhunter.example ~/.config/.config-emailhunter
-nano ~/.config/.config-emailhunter
-```
-
-```powershell
-# Windows (PowerShell)
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.config"
-Copy-Item .config-emailhunter.example "$env:USERPROFILE\.config\.config-emailhunter"
-notepad "$env:USERPROFILE\.config\.config-emailhunter"
-```
-
-### File Format
+The file is auto-generated with comments included:
 
 ```ini
-# Email-Hunter Configuration File
-# Lines starting with '#' are comments
+# ============================================================
+#  Email-Hunter Configuration File
+#  Auto-generated on first run.
+#
+#  Fill in your API keys below, then re-run the tool.
+#
+#  Get your keys at:
+#    Hunter.io  -> https://hunter.io/api-keys
+#    Snov.io    -> https://app.snov.io/account?settings=api
+# ============================================================
 
-# Hunter.io API Key  →  https://hunter.io/api-keys
-HUNTER_API_KEY=your_hunter_api_key_here
+# Hunter.io API Key
+HUNTER_API_KEY=your_key_here
 
-# Snov.io API Key  →  https://app.snov.io/account?settings=api
-SNOV_API_KEY=your_snov_api_key_here
+# Snov.io API Key
+SNOV_API_KEY=your_key_here
 ```
 
-> **Priority rule:** If you also pass `-hunter-key` or `-snov-key` on the command line,  
-> the CLI flag **always wins** over the config file value.
+### API Key Check on Every Run
+
+Each time the tool starts, it checks the status of all API keys and reports clearly:
+
+```
+  [*] Config : /home/user/.config/.config-emailhunter
+  [*]   HUNTER_API_KEY:    ✔  loaded (abcd****efgh)
+  [*]   SNOV_API_KEY:      ✘  not set
+
+  [!] Snov.io API key is not set.
+      Edit your config file and fill in SNOV_API_KEY:
+      /home/user/.config/.config-emailhunter
+
+  [!] API modules with missing keys will be skipped automatically.
+      Use --no-snov to suppress this warning.
+```
+
+> **Priority rule:** CLI flag `-hunter-key` / `-snov-key` **always wins** over the config file.  
+> Useful for testing a different key without editing the file.
 
 ---
 
@@ -122,23 +141,23 @@ email-hunter -d <domain> [options]
 ### Examples
 
 ```bash
-# Basic scan (reads API keys from ~/.config/.config-emailhunter automatically)
+# First run — auto-creates config file, fill in keys then re-run
+./email-hunter -d example.com
+
+# Full scan using keys from config file
 ./email-hunter -d example.com
 
 # Save results as JSON
 ./email-hunter -d example.com -o results.json
 
-# API-only mode (fastest, no crawling)
+# API-only mode (fastest, no crawling needed)
 ./email-hunter -d example.com --no-web --no-dork --no-cert
 
-# Override config file key on-the-fly
-./email-hunter -d example.com -hunter-key MY_OTHER_KEY
-
-# Free modules only (no API keys needed)
+# Free modules only — no API keys required
 ./email-hunter -d example.com --no-hunter --no-snov
 
-# Save as CSV, skip web crawling
-./email-hunter -d example.com -o emails.csv --no-web
+# Override a key without editing the config file
+./email-hunter -d example.com -hunter-key MY_OTHER_KEY
 ```
 
 ---
@@ -146,9 +165,14 @@ email-hunter -d <domain> [options]
 ## 📊 Output Example
 
 ```
-  [*] Config file: /home/user/.config/.config-emailhunter
-  [*] HUNTER_API_KEY:    loaded (abcd****efgh)
-  [*] SNOV_API_KEY:      loaded (1234****5678)
+  [+] Config file created for the first time!       ← first run only
+  [*] Location : /home/user/.config/.config-emailhunter
+
+  --- or on subsequent runs ---
+
+  [*] Config : /home/user/.config/.config-emailhunter
+  [*]   HUNTER_API_KEY:    ✔  loaded (abcd****efgh)
+  [*]   SNOV_API_KEY:      ✔  loaded (1234****5678)
 
   [*] Target domain : example.com
 
@@ -158,7 +182,7 @@ email-hunter -d <domain> [options]
   [*] Hunter.io returned 2 emails
 
   [*] Querying Snov.io API...
-  [*] Snov.io task started (hash: 6f15de14db95...)
+  [*] Snov.io task started (hash: 6f15de14...)
   [+] support@example.com                   [snov.io]
   [*] Snov.io returned 1 emails
 
@@ -173,9 +197,8 @@ email-hunter -d <domain> [options]
 ```
 Email-Hunter/
 ├── main.go                       # Entry point, CLI flag parsing
-├── .config-emailhunter.example   # Config file template
 ├── internal/
-│   ├── config/                   # Config file loader (~/.config/.config-emailhunter)
+│   ├── config/                   # Auto-setup + load ~/.config/.config-emailhunter
 │   ├── banner/                   # ASCII art + colored terminal output
 │   ├── hunterio/                 # Hunter.io domain search API
 │   ├── snovio/                   # Snov.io async domain search API
@@ -190,7 +213,9 @@ Email-Hunter/
 
 ## ⚠️ Disclaimer
 
-This tool is intended for **legal security research and OSINT** purposes only. Only use it against domains you have explicit permission to scan. The author is not responsible for any misuse.
+This tool is intended for **legal security research and OSINT** purposes only.  
+Only use it against domains you have explicit permission to scan.  
+The author is not responsible for any misuse.
 
 ---
 
