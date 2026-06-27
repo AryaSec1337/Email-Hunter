@@ -42,6 +42,16 @@
 
 ## 📦 Installation
 
+### Easiest Way (Recommended)
+You can install the tool directly using `go install`. Go will automatically download, compile, and place the executable in your `$GOPATH/bin` directory:
+
+```bash
+go install -v github.com/AryaSec1337/Email-Hunter@latest
+```
+
+### From Source
+Alternatively, you can clone and build the binary manually:
+
 ```bash
 git clone https://github.com/AryaSec1337/Email-Hunter.git
 cd Email-Hunter
