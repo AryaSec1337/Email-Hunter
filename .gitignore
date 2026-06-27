@@ -1,0 +1,17 @@
+# Binaries
+email-hunter
+email-hunter.exe
+*.exe
+*.out
+
+# Output files
+output/
+results/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

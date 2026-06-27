@@ -1,0 +1,47 @@
+package banner
+
+import (
+	"fmt"
+	"runtime"
+
+	"github.com/fatih/color"
+)
+
+// ASCII art banner for Email-Hunter
+const art = `
+███████╗███╗   ███╗ █████╗ ██╗██╗      ██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗ 
+██╔════╝████╗ ████║██╔══██╗██║██║      ██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗
+█████╗  ██╔████╔██║███████║██║██║      ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝
+██╔══╝  ██║╚██╔╝██║██╔══██║██║██║      ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
+███████╗██║ ╚═╝ ██║██║  ██║██║███████╗ ██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║
+╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+`
+
+// Print displays the banner and tool metadata
+func Print() {
+	cyan := color.New(color.FgCyan, color.Bold)
+	yellow := color.New(color.FgYellow, color.Bold)
+	green := color.New(color.FgGreen)
+	red := color.New(color.FgRed, color.Bold)
+
+	red.Println(art)
+
+	cyan.Printf("  %-14s", "Tool     :")
+	fmt.Println(" Email-Hunter")
+
+	cyan.Printf("  %-14s", "Version  :")
+	yellow.Println(" v1.0.0")
+
+	cyan.Printf("  %-14s", "Author   :")
+	green.Println(" AryaSec1337")
+
+	cyan.Printf("  %-14s", "GitHub   :")
+	fmt.Println(" https://github.com/AryaSec1337/Email-Hunter")
+
+	cyan.Printf("  %-14s", "Platform :")
+	fmt.Printf(" %s/%s\n", runtime.GOOS, runtime.GOARCH)
+
+	fmt.Println()
+	color.New(color.FgHiBlack).Println("  ─────────────────────────────────────────────────────────────────────")
+	fmt.Println()
+}
