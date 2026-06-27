@@ -27,19 +27,19 @@ const (
 	meURL     = "https://api.snov.io/v2/me"
 
 	pollInterval = 3 * time.Second
-	maxPolls     = 20 // up to ~60 seconds
+	maxPolls     = 20
 )
 
 // ── Account Info Types ────────────────────────────────────────────────────────
 
 // AccountInfo holds Snov.io account credentials and usage limits.
 type AccountInfo struct {
-	Email          string
-	Name           string
-	Plan           string
-	CreditsLeft    int
-	CreditsTotal   int
-	CreditsUsed    int
+	Email        string
+	Name         string
+	Plan         string
+	CreditsLeft  int
+	CreditsTotal int
+	CreditsUsed  int
 }
 
 type meResponse struct {
@@ -51,7 +51,6 @@ type meResponse struct {
 		CreditsTotal int    `json:"credits_total"`
 		CreditsUsed  int    `json:"credits_used"`
 	} `json:"data"`
-	// Some Snov.io endpoints return top-level fields
 	Email        string `json:"email"`
 	Name         string `json:"name"`
 	Plan         string `json:"plan"`
@@ -59,7 +58,7 @@ type meResponse struct {
 	CreditsTotal int    `json:"credits_total"`
 }
 
-// ── Response types ────────────────────────────────────────────────────────────
+// ── Search Response Types ─────────────────────────────────────────────────────
 
 type startResponse struct {
 	Data interface{} `json:"data"`
@@ -78,7 +77,7 @@ type emailItem struct {
 
 type resultResponse struct {
 	Data   []emailItem `json:"data"`
-	Status string      `json:"status"` // "queued" | "in_progress" | "completed" | "failed"
+	Status string      `json:"status"`
 	Meta   struct {
 		Domain     string `json:"domain"`
 		TaskHash   string `json:"task_hash"`
@@ -90,7 +89,7 @@ type resultResponse struct {
 	} `json:"links"`
 }
 
-// ── HTTP helpers ──────────────────────────────────────────────────────────────
+// ── HTTP helper ───────────────────────────────────────────────────────────────
 
 func newClient() *http.Client {
 	return &http.Client{Timeout: 20 * time.Second}
@@ -99,7 +98,6 @@ func newClient() *http.Client {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 // GetAccountInfo fetches Snov.io account credentials and credit limits.
-// Returns nil (with a printed warning) when the key is empty or the call fails.
 func GetAccountInfo(apiKey string) *AccountInfo {
 	if apiKey == "" {
 		return nil
@@ -108,7 +106,6 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 	red := color.New(color.FgRed)
 	client := newClient()
 
-	// Snov.io /v2/me accepts api_key as query param
 	reqURL := meURL + "?api_key=" + apiKey
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
@@ -136,7 +133,6 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 		return nil
 	}
 
-	// Handle both nested (.data) and flat response formats
 	info := &AccountInfo{}
 	if parsed.Data.Email != "" {
 		info.Email        = parsed.Data.Email
@@ -154,7 +150,6 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 	}
 
 	if info.Email == "" {
-		// Endpoint might not exist or returned unexpected format
 		red.Println("  [-] Snov.io account: no user data in response")
 		return nil
 	}
@@ -202,7 +197,8 @@ func PrintAccountInfo(info *AccountInfo) {
 
 // Search triggers a Snov.io domain-search job, polls for completion,
 // and returns all discovered emails (paginated).
-func Search(domain, apiKey string) []output.Result {
+// seen is the global SeenSet — emails already found by other modules are skipped.
+func Search(domain, apiKey string, seen *output.SeenSet) []output.Result {
 	cyan   := color.New(color.FgCyan, color.Bold)
 	red    := color.New(color.FgRed)
 	yellow := color.New(color.FgYellow)
@@ -217,7 +213,6 @@ func Search(domain, apiKey string) []output.Result {
 
 	client := newClient()
 
-	// ── Step 1: Start the search task ────────────────────────────────────────
 	taskHash, err := startSearch(client, domain, apiKey)
 	if err != nil {
 		red.Printf("  [-] Snov.io start error: %v\n", err)
@@ -226,9 +221,7 @@ func Search(domain, apiKey string) []output.Result {
 	cyan.Printf("  [*] ")
 	fmt.Printf("Snov.io task started (hash: %s)\n", taskHash)
 
-	// ── Step 2: Poll for results ──────────────────────────────────────────────
 	var allResults []output.Result
-	seen := map[string]bool{}
 	nextCursor := ""
 	totalCount := 0
 
@@ -245,15 +238,14 @@ func Search(domain, apiKey string) []output.Result {
 			totalCount = res.Meta.TotalCount
 		}
 
-		// Collect emails from this page
 		for _, item := range res.Data {
 			email := strings.ToLower(item.Email)
-			if !seen[email] {
-				seen[email] = true
-				r := output.Result{Email: email, Source: "snov.io"}
-				allResults = append(allResults, r)
-				output.PrintResult(email, "snov.io")
+			if !seen.Add(email) {
+				continue // duplicate — skip silently
 			}
+			r := output.Result{Email: email, Source: "snov.io"}
+			allResults = append(allResults, r)
+			output.PrintResult(email, "snov.io")
 		}
 
 		switch res.Status {
@@ -279,7 +271,7 @@ func Search(domain, apiKey string) []output.Result {
 
 done:
 	cyan.Printf("  [*] ")
-	fmt.Printf("Snov.io returned %d emails", len(allResults))
+	fmt.Printf("Snov.io returned %d new emails", len(allResults))
 	if totalCount > 0 && totalCount > len(allResults) {
 		fmt.Printf("  (total available: %d)", totalCount)
 	}
@@ -365,7 +357,6 @@ func fetchResult(client *http.Client, taskHash, apiKey, nextCursor string) (*res
 	return &parsed, nil
 }
 
-// limitBar returns a small ASCII progress bar showing used/total ratio.
 func limitBar(used, total int) string {
 	if total == 0 {
 		return "[----------]"

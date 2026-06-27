@@ -122,30 +122,36 @@ func main() {
 
 	var allResults []output.Result
 
+	// ── Global deduplication set ──────────────────────────────────────────────
+	// One SeenSet is shared across ALL modules. Each module calls seen.Add()
+	// before printing/collecting, so no email ever appears twice — even when
+	// the same address is found by Hunter.io, Snov.io, the crawler, etc.
+	seen := output.NewSeenSet()
+
 	// ── Module: Hunter.io API ─────────────────────────────────────────────────
 	if !*noHunter {
-		hunterResults := hunterio.Search(*domain, *hunterKey)
+		hunterResults := hunterio.Search(*domain, *hunterKey, seen)
 		allResults = append(allResults, hunterResults...)
 		fmt.Println()
 	}
 
 	// ── Module: Snov.io API ───────────────────────────────────────────────────
 	if !*noSnov {
-		snovResults := snovio.Search(*domain, *snovKey)
+		snovResults := snovio.Search(*domain, *snovKey, seen)
 		allResults = append(allResults, snovResults...)
 		fmt.Println()
 	}
 
 	// ── Module: crt.sh ────────────────────────────────────────────────────────
 	if !*noCert {
-		_, certEmails := crtsh.Lookup(*domain)
+		_, certEmails := crtsh.Lookup(*domain, seen)
 		allResults = append(allResults, certEmails...)
 		fmt.Println()
 	}
 
 	// ── Module: Search Engine Dorks ───────────────────────────────────────────
 	if !*noDork {
-		dorkResults := google.Search(*domain)
+		dorkResults := google.Search(*domain, seen)
 		allResults = append(allResults, dorkResults...)
 		fmt.Println()
 	}
@@ -153,7 +159,7 @@ func main() {
 	// ── Module: Web Crawler ───────────────────────────────────────────────────
 	if !*noWeb {
 		c := crawler.New(*domain, *maxDepth, *maxPages)
-		crawlResults := c.Run()
+		crawlResults := c.Run(seen)
 		allResults = append(allResults, crawlResults...)
 		fmt.Println()
 	}

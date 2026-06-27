@@ -24,7 +24,8 @@ type crtEntry struct {
 
 // Lookup queries crt.sh for the given domain and returns subdomains + any
 // emails found in the common-name fields.
-func Lookup(domain string) ([]string, []output.Result) {
+// seen is the global SeenSet — emails already found by other modules are skipped.
+func Lookup(domain string, seen *output.SeenSet) ([]string, []output.Result) {
 	cyan := color.New(color.FgCyan, color.Bold)
 	cyan.Printf("  [*] ")
 	fmt.Printf("Querying crt.sh for subdomains of: %s\n", domain)
@@ -51,7 +52,6 @@ func Lookup(domain string) ([]string, []output.Result) {
 	}
 
 	seenSubs := map[string]bool{}
-	seenEmails := map[string]bool{}
 	var subdomains []string
 	var emails []output.Result
 
@@ -71,11 +71,11 @@ func Lookup(domain string) ([]string, []output.Result) {
 			// Collect emails sometimes embedded in SAN entries
 			for _, m := range emailRegex.FindAllString(name, -1) {
 				m = strings.ToLower(m)
-				if !seenEmails[m] {
-					seenEmails[m] = true
-					emails = append(emails, output.Result{Email: m, Source: "crt.sh"})
-					output.PrintResult(m, "crt.sh")
+				if !seen.Add(m) {
+					continue // duplicate — skip silently
 				}
+				emails = append(emails, output.Result{Email: m, Source: "crt.sh"})
+				output.PrintResult(m, "crt.sh")
 			}
 		}
 	}

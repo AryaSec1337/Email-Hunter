@@ -78,7 +78,7 @@ type apiResponse struct {
 	} `json:"errors"`
 }
 
-// ── HTTP Client ───────────────────────────────────────────────────────────────
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
 
 func newClient() *http.Client {
 	return &http.Client{Timeout: 20 * time.Second}
@@ -102,7 +102,6 @@ func doGet(client *http.Client, rawURL string) ([]byte, int, error) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 // GetAccountInfo fetches account credentials and usage limits from Hunter.io.
-// Returns nil (with a printed warning) when the key is empty or the call fails.
 func GetAccountInfo(apiKey string) *AccountInfo {
 	if apiKey == "" {
 		return nil
@@ -181,9 +180,9 @@ func PrintAccountInfo(info *AccountInfo) {
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }
 
-// Search queries the Hunter.io domain-search endpoint and returns
-// all email addresses associated with the target domain.
-func Search(domain, apiKey string) []output.Result {
+// Search queries the Hunter.io domain-search endpoint.
+// seen is the global SeenSet — emails already found by other modules are skipped.
+func Search(domain, apiKey string, seen *output.SeenSet) []output.Result {
 	cyan   := color.New(color.FgCyan, color.Bold)
 	red    := color.New(color.FgRed)
 	yellow := color.New(color.FgYellow)
@@ -224,6 +223,9 @@ func Search(domain, apiKey string) []output.Result {
 
 	var results []output.Result
 	for _, e := range parsed.Data.Emails {
+		if !seen.Add(e.Value) {
+			continue // already found by a previous module — skip silently
+		}
 		r := output.Result{
 			Email:  e.Value,
 			Source: fmt.Sprintf("hunter.io (conf:%d%%)", e.Confidence),
@@ -233,7 +235,7 @@ func Search(domain, apiKey string) []output.Result {
 	}
 
 	cyan.Printf("  [*] ")
-	fmt.Printf("Hunter.io returned %d emails", len(results))
+	fmt.Printf("Hunter.io returned %d new emails", len(results))
 	if parsed.Meta.Results > 0 {
 		fmt.Printf("  (showing %d / %d total)", len(results), parsed.Meta.Results)
 	}
@@ -244,7 +246,6 @@ func Search(domain, apiKey string) []output.Result {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// limitBar returns a small ASCII progress bar showing used/max ratio.
 func limitBar(used, max int) string {
 	if max == 0 {
 		return "[----------]"

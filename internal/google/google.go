@@ -30,8 +30,9 @@ func dorks(domain string) []string {
 	}
 }
 
-// Search queries DuckDuckGo for emails related to the domain
-func Search(domain string) []output.Result {
+// Search queries DuckDuckGo for emails related to the domain.
+// seen is the global SeenSet — emails already found by other modules are skipped.
+func Search(domain string, seen *output.SeenSet) []output.Result {
 	cyan := color.New(color.FgCyan, color.Bold)
 	cyan.Printf("  [*] ")
 	fmt.Println("Running search engine dork queries...")
@@ -43,7 +44,6 @@ func Search(domain string) []output.Result {
 		},
 	}
 
-	seen := map[string]bool{}
 	var results []output.Result
 
 	for _, dork := range dorks(domain) {
@@ -63,20 +63,18 @@ func Search(domain string) []output.Result {
 
 		for _, m := range emailRegex.FindAllString(string(body), -1) {
 			m = strings.ToLower(m)
-			// Only include emails from the target domain
 			if !strings.Contains(m, domain) {
 				continue
 			}
-			// Filter common false positives
 			if strings.HasSuffix(m, ".png") || strings.HasSuffix(m, ".jpg") {
 				continue
 			}
-			if !seen[m] {
-				seen[m] = true
-				r := output.Result{Email: m, Source: "dork-search"}
-				results = append(results, r)
-				output.PrintResult(m, "dork-search")
+			if !seen.Add(m) {
+				continue // duplicate — skip silently
 			}
+			r := output.Result{Email: m, Source: "dork-search"}
+			results = append(results, r)
+			output.PrintResult(m, "dork-search")
 		}
 
 		time.Sleep(1500 * time.Millisecond) // polite delay

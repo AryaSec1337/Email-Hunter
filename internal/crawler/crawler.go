@@ -52,20 +52,24 @@ func New(domain string, maxDepth, maxPages int) *Crawler {
 	}
 }
 
-// Run starts crawling and returns discovered emails
-func (c *Crawler) Run() []output.Result {
+// Run starts crawling and returns discovered emails.
+// seen is the global SeenSet — emails already found by other modules are skipped.
+func (c *Crawler) Run(seen *output.SeenSet) []output.Result {
 	startURL := "https://" + c.Domain
 	cyan := color.New(color.FgCyan, color.Bold)
 	cyan.Printf("  [*] ")
 	fmt.Printf("Starting web crawl on: %s\n", startURL)
 
 	var wg sync.WaitGroup
-	pageCh := make(chan string, 100)
+	pageCh  := make(chan string, 100)
 	emailCh := make(chan output.Result, 500)
 
-	// Collector goroutine
+	// Collector goroutine: dedup via global SeenSet before printing
 	go func() {
 		for r := range emailCh {
+			if !seen.Add(r.Email) {
+				continue // duplicate — skip silently
+			}
 			c.mu.Lock()
 			c.Results = append(c.Results, r)
 			c.mu.Unlock()
