@@ -42,7 +42,8 @@ func main() {
 
 	// API Keys (override config file)
 	hunterKey       := flag.String("hunter-key", "", "Hunter.io API key")
-	snovKey         := flag.String("snov-key", "", "Snov.io API key")
+	snovID          := flag.String("snov-id", "", "Snov.io API User ID")
+	snovSecret      := flag.String("snov-secret", "", "Snov.io API Secret")
 	rocketreachKey  := flag.String("rocketreach-key", "", "RocketReach API key")
 	prospeoKey      := flag.String("prospeo-key", "", "Prospeo API key")
 	findymailKey    := flag.String("findymail-key", "", "FindyMail API key")
@@ -87,8 +88,11 @@ func main() {
 	if *hunterKey == "" {
 		*hunterKey = cfg.HunterAPIKey
 	}
-	if *snovKey == "" {
-		*snovKey = cfg.SnovAPIKey
+	if *snovID == "" {
+		*snovID = cfg.SnovUserID
+	}
+	if *snovSecret == "" {
+		*snovSecret = cfg.SnovAPISecret
 	}
 	if *rocketreachKey == "" {
 		*rocketreachKey = cfg.RocketReachAPIKey
@@ -105,7 +109,8 @@ func main() {
 
 	// Reflect merged state back to config struct
 	cfg.HunterAPIKey = *hunterKey
-	cfg.SnovAPIKey = *snovKey
+	cfg.SnovUserID = *snovID
+	cfg.SnovAPISecret = *snovSecret
 	cfg.RocketReachAPIKey = *rocketreachKey
 	cfg.ProspeoAPIKey = *prospeoKey
 	cfg.FindyMailAPIKey = *findymailKey
@@ -127,7 +132,7 @@ func main() {
 		hunterInfo = hunterio.GetAccountInfo(*hunterKey)
 	}
 	if !*noSnov {
-		snovInfo = snovio.GetAccountInfo(*snovKey)
+		snovInfo = snovio.GetAccountInfo(*snovID, *snovSecret)
 	}
 	if !*noRocketReach {
 		rocketreachInfo = rocketreach.GetAccountInfo(*rocketreachKey)
@@ -184,7 +189,7 @@ func main() {
 
 	// ── Module: Snov.io API ───────────────────────────────────────────────────
 	if !*noSnov {
-		snovResults := snovio.Search(*domain, *snovKey, seen)
+		snovResults := snovio.Search(*domain, *snovID, *snovSecret, seen)
 		allResults = append(allResults, snovResults...)
 		fmt.Println()
 	}
@@ -286,8 +291,9 @@ func usage() {
 		{"-p <int>",             "Max pages to crawl (default: 50)"},
 		{"-depth <int>",         "Crawl depth (default: 3)"},
 		{"-hunter-key <key>",    "Hunter.io API key (overrides config file)"},
-		{"-snov-key <key>",      "Snov.io API key (overrides config file)"},
-		{"-rocketreach-key <k>", "RocketReach API key (overrides config file)"},
+		{"-snov-id <id>",        "Snov.io API User ID (overrides config file)"},
+		{"-snov-secret <sec>",   "Snov.io API Secret (overrides config file)"},
+		{"-rocketreach-key <key>", "RocketReach API key (overrides config file)"},
 		{"-prospeo-key <key>",   "Prospeo API key (overrides config file)"},
 		{"-findymail-key <key>", "FindyMail API key (overrides config file)"},
 		{"-contactout-key <k>",  "ContactOut API key (overrides config file)"},
@@ -314,7 +320,7 @@ func usage() {
 	green.Printf("    %-24s", "Auto-created:")
 	fmt.Println(" yes — generated on first run if missing")
 	green.Printf("    %-24s", "Keys:")
-	fmt.Println(" HUNTER_API_KEY, SNOV_API_KEY, ROCKETREACH_API_KEY, PROSPEO_API_KEY, FINDYMAIL_API_KEY, CONTACTOUT_API_KEY")
+	fmt.Println(" HUNTER_API_KEY, SNOV_USER_ID, SNOV_API_SECRET, ROCKETREACH_API_KEY, PROSPEO_API_KEY, FINDYMAIL_API_KEY, CONTACTOUT_API_KEY")
 
 	fmt.Println()
 	cyan.Println("  EXAMPLES:")

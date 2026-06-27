@@ -78,7 +78,8 @@ email-hunter -d <domain> [options]
 | `-p <int>` | Max pages to crawl | `50` |
 | `-depth <int>` | Crawl depth | `3` |
 | `-hunter-key <key>` | Hunter.io API key *(overrides config file)* | — |
-| `-snov-key <key>` | Snov.io API key *(overrides config file)* | — |
+| `-snov-id <id>` | Snov.io API User ID *(overrides config file)* | — |
+| `-snov-secret <sec>` | Snov.io API Secret *(overrides config file)* | — |
 | `-rocketreach-key <key>` | RocketReach API key *(overrides config file)* | — |
 | `-prospeo-key <key>` | Prospeo API key *(overrides config file)* | — |
 | `-findymail-key <key>` | FindyMail API key *(overrides config file)* | — |
@@ -125,7 +126,8 @@ email-hunter -d <domain> [options]
   # ── Subsequent runs: shows account info + limits ──────────────────────
   [*] Config : /home/user/.config/.config-emailhunter
   [*]   HUNTER_API_KEY:      ✔  loaded (abcd****efgh)
-  [*]   SNOV_API_KEY:        ✔  loaded (1234****5678)
+  [*]   SNOV_USER_ID:        ✔  loaded (snov****user)
+  [*]   SNOV_API_SECRET:     ✔  loaded (secr****snov)
   [*]   ROCKETREACH_API_KEY: ✔  loaded (5678****1234)
   [*]   PROSPEO_API_KEY:     ✔  loaded (9012****abcd)
   [*]   FINDYMAIL_API_KEY:   ✘  not set

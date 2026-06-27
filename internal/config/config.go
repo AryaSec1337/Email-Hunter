@@ -1,13 +1,5 @@
 // Package config handles loading Email-Hunter configuration from a flat key=value
 // file located at ~/.config/.config-emailhunter (cross-platform).
-//
-// File format:
-//
-//	HUNTER_API_KEY=your_hunter_key_here
-//	SNOV_API_KEY=your_snov_key_here
-//
-// Lines starting with '#' are treated as comments and ignored.
-// Blank lines are ignored.
 package config
 
 import (
@@ -31,7 +23,7 @@ const defaultTemplate = `# =====================================================
 #
 #  Get your keys at:
 #    Hunter.io    -> https://hunter.io/api-keys
-#    Snov.io      -> https://app.snov.io/account?settings=api
+#    Snov.io      -> https://app.snov.io/account/api (API User ID & API Secret)
 #    RocketReach  -> https://rocketreach.co/api
 #    Prospeo      -> https://prospeo.io/
 #    FindyMail    -> https://app.findymail.com/
@@ -41,8 +33,9 @@ const defaultTemplate = `# =====================================================
 # Hunter.io API Key
 HUNTER_API_KEY=
 
-# Snov.io API Key
-SNOV_API_KEY=
+# Snov.io Credentials (API User ID & API Secret)
+SNOV_USER_ID=
+SNOV_API_SECRET=
 
 # RocketReach API Key
 ROCKETREACH_API_KEY=
@@ -60,7 +53,8 @@ CONTACTOUT_API_KEY=
 // Config holds all loaded configuration values.
 type Config struct {
 	HunterAPIKey      string
-	SnovAPIKey        string
+	SnovUserID        string
+	SnovAPISecret     string
 	RocketReachAPIKey string
 	ProspeoAPIKey     string
 	FindyMailAPIKey   string
@@ -86,7 +80,6 @@ func ConfigDir() (string, error) {
 }
 
 // ConfigPath returns the canonical path to the config file.
-// On all platforms this resolves to: <home>/.config/.config-emailhunter
 func ConfigPath() (string, error) {
 	dir, err := ConfigDir()
 	if err != nil {
@@ -96,8 +89,6 @@ func ConfigPath() (string, error) {
 }
 
 // Setup ensures the config directory and file exist.
-// On first run it creates them automatically and returns SetupCreated.
-// If the file already exists it returns SetupAlreadyExists.
 func Setup() (SetupResult, string, error) {
 	path, err := ConfigPath()
 	if err != nil {
@@ -109,7 +100,7 @@ func Setup() (SetupResult, string, error) {
 		return SetupAlreadyExists, path, nil
 	}
 
-	// Create ~/.config directory (no-op if already present)
+	// Create ~/.config directory
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return SetupFailed, path, fmt.Errorf("cannot create config directory %s: %w", dir, err)
@@ -124,7 +115,6 @@ func Setup() (SetupResult, string, error) {
 }
 
 // Load reads the config file and returns a populated Config.
-// It is NOT an error if the file does not exist — an empty Config is returned.
 func Load() (*Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
@@ -166,8 +156,10 @@ func Load() (*Config, error) {
 		switch key {
 		case "HUNTER_API_KEY":
 			cfg.HunterAPIKey = val
-		case "SNOV_API_KEY":
-			cfg.SnovAPIKey = val
+		case "SNOV_USER_ID":
+			cfg.SnovUserID = val
+		case "SNOV_API_SECRET":
+			cfg.SnovAPISecret = val
 		case "ROCKETREACH_API_KEY":
 			cfg.RocketReachAPIKey = val
 		case "PROSPEO_API_KEY":
@@ -211,16 +203,15 @@ func PrintStatus(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, noFind
 	}
 
 	printKey("HUNTER_API_KEY",      cfg.HunterAPIKey,      noHunter)
-	printKey("SNOV_API_KEY",        cfg.SnovAPIKey,        noSnov)
+	printKey("SNOV_USER_ID",        cfg.SnovUserID,        noSnov)
+	printKey("SNOV_API_SECRET",    cfg.SnovAPISecret,     noSnov)
 	printKey("ROCKETREACH_API_KEY", cfg.RocketReachAPIKey, noRocketReach)
 	printKey("PROSPEO_API_KEY",     cfg.ProspeoAPIKey,     noProspeo)
 	printKey("FINDYMAIL_API_KEY",   cfg.FindyMailAPIKey,   noFindyMail)
 	printKey("CONTACTOUT_API_KEY",  cfg.ContactOutAPIKey,  noContactOut)
 }
 
-// WarnMissingKeys prints actionable warnings for any enabled module
-// whose API key is still empty after merging CLI flags + config file.
-// Returns true if at least one API key is missing for an enabled module.
+// WarnMissingKeys prints actionable warnings for any enabled module.
 func WarnMissingKeys(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, noFindyMail, noContactOut bool) bool {
 	path, _ := ConfigPath()
 	yellow := color.New(color.FgYellow, color.Bold)
@@ -229,7 +220,7 @@ func WarnMissingKeys(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, no
 
 	warn := func(name, envKey string) {
 		warned = true
-		yellow.Printf("\n  [!] %s API key is not set.\n", name)
+		yellow.Printf("\n  [!] %s API credential is not set.\n", name)
 		dim.Printf("      Edit your config file and fill in %s:\n", envKey)
 		dim.Printf("      %s\n", path)
 	}
@@ -237,8 +228,13 @@ func WarnMissingKeys(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, no
 	if !noHunter && cfg.HunterAPIKey == "" {
 		warn("Hunter.io", "HUNTER_API_KEY")
 	}
-	if !noSnov && cfg.SnovAPIKey == "" {
-		warn("Snov.io", "SNOV_API_KEY")
+	if !noSnov && (cfg.SnovUserID == "" || cfg.SnovAPISecret == "") {
+		if cfg.SnovUserID == "" {
+			warn("Snov.io User ID", "SNOV_USER_ID")
+		}
+		if cfg.SnovAPISecret == "" {
+			warn("Snov.io API Secret", "SNOV_API_SECRET")
+		}
 	}
 	if !noRocketReach && cfg.RocketReachAPIKey == "" {
 		warn("RocketReach", "ROCKETREACH_API_KEY")
