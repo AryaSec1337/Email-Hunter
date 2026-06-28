@@ -184,6 +184,10 @@ func Search(domain, apiKey string, seen *output.SeenSet) []output.Result {
 		red.Printf("  [-] RocketReach request error: %v\n", err)
 		return nil
 	}
+	if status == http.StatusPaymentRequired {
+		yellow.Println("  [!] RocketReach: API key limit reached or payment required")
+		return nil
+	}
 	if status != http.StatusOK && status != http.StatusCreated {
 		red.Printf("  [-] RocketReach returned HTTP %d\n", status)
 		return nil

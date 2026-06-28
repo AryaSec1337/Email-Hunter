@@ -44,7 +44,7 @@ func Lookup(domain string, seen *output.SeenSet) ([]string, []output.Result) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		color.New(color.FgRed).Printf("  [-] crt.sh is currently overloaded or returned HTTP %d\n", resp.StatusCode)
+		color.New(color.FgYellow).Printf("  [!] crt.sh: Server is overloaded or returned HTTP %d (skipping)\n", resp.StatusCode)
 		return nil, nil
 	}
 
@@ -52,7 +52,7 @@ func Lookup(domain string, seen *output.SeenSet) ([]string, []output.Result) {
 	bodyStr := strings.TrimSpace(string(body))
 
 	if strings.HasPrefix(bodyStr, "<") || !strings.HasPrefix(bodyStr, "[") {
-		color.New(color.FgRed).Println("  [-] crt.sh is temporarily overloaded (returned HTML/error page)")
+		color.New(color.FgYellow).Println("  [!] crt.sh: Server is temporarily overloaded (returned HTML/error page)")
 		return nil, nil
 	}
 

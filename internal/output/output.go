@@ -63,16 +63,8 @@ func (s *SeenSet) Len() int {
 	return len(s.seen)
 }
 
-// PrintResult prints a single result to the terminal.
-// Call ONLY after SeenSet.Add returns true to avoid printing duplicates.
-func PrintResult(email, source string) {
-	green := color.New(color.FgGreen, color.Bold)
-	cyan := color.New(color.FgCyan)
-
-	green.Printf("  [+] ")
-	fmt.Printf("%-40s", email)
-	cyan.Printf("  [%s]\n", source)
-}
+// PrintResult is a no-op during scanning. Emails are printed in PrintSummary.
+func PrintResult(email, source string) {}
 
 // PrintSummary prints a summary of all found emails
 func PrintSummary(emails []Result, domain string) {
@@ -82,6 +74,8 @@ func PrintSummary(emails []Result, domain string) {
 
 	yellow := color.New(color.FgYellow, color.Bold)
 	cyan := color.New(color.FgCyan, color.Bold)
+	green := color.New(color.FgGreen, color.Bold)
+	dim := color.New(color.FgCyan)
 
 	cyan.Printf("  [*] ")
 	fmt.Printf("Scan complete for domain: ")
@@ -89,8 +83,16 @@ func PrintSummary(emails []Result, domain string) {
 
 	cyan.Printf("  [*] ")
 	fmt.Printf("Total unique emails found: ")
-	yellow.Printf("%d\n", len(emails))
-	fmt.Println()
+	yellow.Printf("%d\n\n", len(emails))
+
+	if len(emails) > 0 {
+		for _, e := range emails {
+			green.Printf("  [+] ")
+			fmt.Printf("%-40s", e.Email)
+			dim.Printf("  [%s]\n", e.Source)
+		}
+		fmt.Println()
+	}
 }
 
 // SaveTXT saves results to a text file

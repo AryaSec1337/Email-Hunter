@@ -201,6 +201,22 @@ func Search(domain, apiKey string, seen *output.SeenSet) []output.Result {
 		red.Println("  [-] Prospeo: rate limit hit (429) — try again later")
 		return nil
 	}
+
+	var parsed searchResp
+	if err := json.Unmarshal(b, &parsed); err != nil {
+		if status != http.StatusOK {
+			red.Printf("  [-] Prospeo returned HTTP %d: %s\n", status, string(b))
+		} else {
+			red.Printf("  [-] Prospeo parse error: %v\n", err)
+		}
+		return nil
+	}
+
+	if parsed.ErrorCode == "DEPRECATED" {
+		yellow.Println("  [!] Prospeo: The domain-search API endpoint has been deprecated/removed by Prospeo")
+		return nil
+	}
+
 	if status != http.StatusOK {
 		red.Printf("  [-] Prospeo returned HTTP %d: %s\n", status, string(b))
 		return nil
@@ -212,16 +228,6 @@ func Search(domain, apiKey string, seen *output.SeenSet) []output.Result {
 		dailyLeft, _ = strconv.Atoi(v)
 	}
 	_ = dailyLeft
-
-	var parsed searchResp
-	if err := json.Unmarshal(b, &parsed); err != nil {
-		red.Printf("  [-] Prospeo parse error: %v\n", err)
-		return nil
-	}
-	if parsed.ErrorCode == "DEPRECATED" {
-		yellow.Println("  [!] Prospeo: The domain-search API endpoint has been deprecated/removed by Prospeo. Please use alternative modules.")
-		return nil
-	}
 	if parsed.Error != nil {
 		isError := false
 		if errStr, ok := parsed.Error.(string); ok && errStr != "" {
