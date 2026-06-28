@@ -22,7 +22,7 @@ import (
 
 const (
 	baseURL      = "https://api.rocketreach.co"
-	searchURL    = baseURL + "/v2/person/search"
+	searchURL    = baseURL + "/v2/api/search"
 	accountURL   = baseURL + "/v2/api/account"
 )
 
