@@ -71,9 +71,7 @@ type resultResponse struct {
 		Next       string `json:"next"`
 		TotalCount int    `json:"total_count"`
 	} `json:"meta"`
-	Links struct {
-		Next string `json:"next"`
-	} `json:"links"`
+	Links interface{} `json:"links"`
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -269,7 +267,15 @@ func Search(domain, userID, apiSecret string, seen *output.SeenSet) []output.Res
 
 		switch res.Status {
 		case "completed":
-			if res.Links.Next != "" && res.Meta.Next != "" {
+			hasNext := false
+			if res.Meta.Next != "" && res.Links != nil {
+				if m, ok := res.Links.(map[string]interface{}); ok {
+					if n, ok := m["next"].(string); ok && n != "" {
+						hasNext = true
+					}
+				}
+			}
+			if hasNext {
 				nextCursor = res.Meta.Next
 				if poll < maxPolls-1 {
 					poll = 0
