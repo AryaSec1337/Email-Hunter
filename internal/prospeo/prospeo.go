@@ -61,8 +61,10 @@ type searchResp struct {
 		EmailList  []emailItem `json:"email_list"`
 		TotalCount int         `json:"total_count"`
 	} `json:"response"`
-	Error   string `json:"error"`
-	Message string `json:"message"`
+	Error      interface{} `json:"error"`
+	Message    string      `json:"message"`
+	ErrorCode  string      `json:"error_code"`
+	ErrorToast string      `json:"error_toast"`
 }
 
 // ── HTTP helper ────────────────────────────────────────────────────────────────
@@ -216,9 +218,25 @@ func Search(domain, apiKey string, seen *output.SeenSet) []output.Result {
 		red.Printf("  [-] Prospeo parse error: %v\n", err)
 		return nil
 	}
-	if parsed.Error != "" {
-		red.Printf("  [-] Prospeo API error: %s\n", parsed.Message)
+	if parsed.ErrorCode == "DEPRECATED" {
+		yellow.Println("  [!] Prospeo: The domain-search API endpoint has been deprecated/removed by Prospeo. Please use alternative modules.")
 		return nil
+	}
+	if parsed.Error != nil {
+		isError := false
+		if errStr, ok := parsed.Error.(string); ok && errStr != "" {
+			isError = true
+		} else if errBool, ok := parsed.Error.(bool); ok && errBool {
+			isError = true
+		}
+		if isError {
+			errMsg := parsed.Message
+			if errMsg == "" {
+				errMsg = parsed.ErrorToast
+			}
+			red.Printf("  [-] Prospeo API error: %s\n", errMsg)
+			return nil
+		}
 	}
 
 	var results []output.Result

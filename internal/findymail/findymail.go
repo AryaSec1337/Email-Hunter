@@ -142,8 +142,9 @@ func Search(domain, apiKey string, seen *output.SeenSet) []output.Result {
 		return nil
 	}
 
-	payload := map[string]string{
+	payload := map[string]interface{}{
 		"domain": domain,
+		"roles":  []string{"CEO", "Founder", "Owner", "President", "VP", "Director", "Manager", "Engineer", "Sales", "Support", "Marketing", "Admin"},
 	}
 
 	b, status, err := doRequest(newClient(), "POST", searchURL, apiKey, payload)

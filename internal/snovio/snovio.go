@@ -24,7 +24,7 @@ import (
 
 const (
 	tokenURL  = "https://api.snov.io/v1/oauth/access_token"
-	startURL  = "https://api.snov.io/v2/domain-search/start"
+	startURL  = "https://api.snov.io/v2/domain-search/domain-emails/start"
 	resultURL = "https://api.snov.io/v2/domain-search/domain-emails/result/%s"
 	meURL     = "https://api.snov.io/v1/get-balance"
 
