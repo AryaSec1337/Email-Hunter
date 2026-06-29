@@ -183,8 +183,6 @@ func PrintStatus(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, noFind
 	path, _ := ConfigPath()
 	cyan   := color.New(color.FgCyan, color.Bold)
 	green  := color.New(color.FgGreen)
-	yellow := color.New(color.FgYellow, color.Bold)
-	dim    := color.New(color.FgHiBlack)
 
 	cyan.Printf("  [*] ")
 	fmt.Printf("Config : %s\n", path)
@@ -193,12 +191,15 @@ func PrintStatus(cfg *Config, noHunter, noSnov, noRocketReach, noProspeo, noFind
 		cyan.Printf("  [*] ")
 		fmt.Printf("  %-20s ", label+":")
 		switch {
-		case disabled:
-			dim.Println("disabled (--no-* flag)")
 		case val != "":
-			green.Printf("✔  loaded (%s)\n", maskKey(val))
+			if disabled {
+				green.Printf("✔  loaded (%s) ", maskKey(val))
+				color.New(color.FgYellow).Println("[inactive]")
+			} else {
+				green.Printf("✔  loaded (%s)\n", maskKey(val))
+			}
 		default:
-			yellow.Println("✘  not set")
+			color.New(color.FgRed).Println("✘  not set")
 		}
 	}
 
