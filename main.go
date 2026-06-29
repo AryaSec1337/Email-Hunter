@@ -37,11 +37,11 @@ func main() {
 	noWeb           := flag.Bool("no-web", false, "Skip web crawling")
 	noDork          := flag.Bool("no-dork", false, "Skip search engine dorking")
 	noCert          := flag.Bool("no-cert", false, "Skip crt.sh certificate lookup")
-	hunterFlag      := flag.Bool("hunter", false, "Enable Hunter.io API")
-	snovFlag        := flag.Bool("snov", false, "Enable Snov.io API")
+	noHunter        := flag.Bool("no-hunter", false, "Skip Hunter.io API")
+	noSnov          := flag.Bool("no-snov", false, "Skip Snov.io API")
 	noRocketReach   := flag.Bool("no-rocketreach", false, "Skip RocketReach API")
 	noProspeo       := flag.Bool("no-prospeo", false, "Skip Prospeo API")
-	findymailFlag   := flag.Bool("findymail", false, "Enable FindyMail API")
+	noFindyMail     := flag.Bool("no-findymail", false, "Skip FindyMail API")
 	noContactOut    := flag.Bool("no-contactout", false, "Skip ContactOut API")
 
 	// API Keys (override config file)
@@ -55,15 +55,6 @@ func main() {
 
 	flag.Usage = usage
 	flag.Parse()
-
-	noHunter := new(bool)
-	*noHunter = !*hunterFlag
-
-	noSnov := new(bool)
-	*noSnov = !*snovFlag
-
-	noFindyMail := new(bool)
-	*noFindyMail = !*findymailFlag
 
 	// ── Handle Self-Update Flag ───────────────────────────────────────────────
 	if *updateFlag {
@@ -328,11 +319,11 @@ func usage() {
 		{"-prospeo-key <key>",   "Prospeo API key (overrides config file)"},
 		{"-findymail-key <key>", "FindyMail API key (overrides config file)"},
 		{"-contactout-key <k>",  "ContactOut API key (overrides config file)"},
-		{"-hunter",               "Enable Hunter.io module (disabled by default)"},
-		{"-snov",                 "Enable Snov.io module (disabled by default)"},
+		{"--no-hunter",          "Disable Hunter.io module"},
+		{"--no-snov",            "Disable Snov.io module"},
 		{"--no-rocketreach",     "Disable RocketReach module"},
 		{"--no-prospeo",         "Disable Prospeo module"},
-		{"-findymail",            "Enable FindyMail module (disabled by default)"},
+		{"--no-findymail",       "Disable FindyMail module"},
 		{"--no-contactout",      "Disable ContactOut module"},
 		{"--no-web",             "Disable web crawler module"},
 		{"--no-dork",            "Disable dork search module"},
@@ -358,6 +349,6 @@ func usage() {
 	fmt.Println("    email-hunter -d example.com")
 	fmt.Println("    email-hunter -d example.com -o results.json")
 	fmt.Println("    email-hunter -d example.com --no-web --no-dork    # API-only, fastest")
-	fmt.Println("    email-hunter -d example.com -hunter -snov         # enable specific paid APIs")
+	fmt.Println("    email-hunter -d example.com --no-hunter --no-snov # free modules only")
 	fmt.Println()
 }
