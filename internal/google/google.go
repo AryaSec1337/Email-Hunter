@@ -1,6 +1,5 @@
-// Package google provides a simple Google dorking module that scrapes
-// DuckDuckGo HTML (as a Google alternative that doesn't block bots)
-// to find email addresses associated with a target domain.
+// Package google provides a simple search engine dorking module that queries
+// DuckDuckGo, Yahoo, and Google to find email addresses associated with a target domain.
 package google
 
 import (
@@ -30,55 +29,73 @@ func dorks(domain string) []string {
 	}
 }
 
-// Search queries DuckDuckGo for emails related to the domain.
+// Search queries DuckDuckGo, Yahoo, and Google for emails related to the domain.
 // seen is the global SeenSet — emails already found by other modules are skipped.
 func Search(domain string, seen *output.SeenSet) []output.Result {
 	cyan := color.New(color.FgCyan, color.Bold)
 	cyan.Printf("  [*] ")
-	fmt.Println("Running search engine dork queries...")
+	fmt.Println("Running search engine dork queries (DuckDuckGo, Yahoo, Google)...")
 
 	client := &http.Client{
-		Timeout: 15 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return nil
-		},
+		Timeout: 10 * time.Second,
+	}
+
+	engines := []struct {
+		name    string
+		baseURL string
+	}{
+		{"DuckDuckGo", "https://html.duckduckgo.com/html/?q="},
+		{"Yahoo", "https://search.yahoo.com/search?p="},
+		{"Google", "https://www.google.com/search?q="},
 	}
 
 	var results []output.Result
 
-	for _, dork := range dorks(domain) {
-		searchURL := "https://html.duckduckgo.com/html/?q=" + url.QueryEscape(dork)
+	for _, engine := range engines {
+		for _, dork := range dorks(domain) {
+			searchURL := engine.baseURL + url.QueryEscape(dork)
 
-		req, _ := http.NewRequest("GET", searchURL, nil)
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36")
-		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+			req, _ := http.NewRequest("GET", searchURL, nil)
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+			req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
-		resp, err := client.Do(req)
-		if err != nil {
-			continue
-		}
-
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
-		resp.Body.Close()
-
-		for _, m := range emailRegex.FindAllString(string(body), -1) {
-			m = strings.ToLower(m)
-			if !strings.Contains(m, domain) {
+			resp, err := client.Do(req)
+			if err != nil {
 				continue
 			}
-			if strings.HasSuffix(m, ".png") || strings.HasSuffix(m, ".jpg") {
+
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
+			resp.Body.Close()
+
+			bodyStr := string(body)
+
+			// Detect bot verification block for Google
+			if engine.name == "Google" && (strings.Contains(bodyStr, "google.com/recaptcha") || strings.Contains(bodyStr, "Jika Anda mengalami masalah saat mengakses Google")) {
 				continue
 			}
-			if !seen.Add(m) {
-				continue // duplicate — skip silently
-			}
-			r := output.Result{Email: m, Source: "dork-search"}
-			results = append(results, r)
-			output.PrintResult(m, "dork-search")
-		}
 
-		time.Sleep(1500 * time.Millisecond) // polite delay
+			for _, m := range emailRegex.FindAllString(bodyStr, -1) {
+				m = strings.ToLower(m)
+				if !strings.Contains(m, domain) {
+					continue
+				}
+				if strings.HasSuffix(m, ".png") || strings.HasSuffix(m, ".jpg") || strings.HasSuffix(m, ".gif") || strings.HasSuffix(m, ".jpeg") {
+					continue
+				}
+				if !seen.Add(m) {
+					continue
+				}
+				r := output.Result{Email: m, Source: strings.ToLower(engine.name) + "-dork"}
+				results = append(results, r)
+				output.PrintResult(m, r.Source)
+			}
+
+			time.Sleep(1000 * time.Millisecond) // polite delay
+		}
 	}
+
+	cyan.Printf("  [*] ")
+	fmt.Printf("Search engine dorks returned %d new emails\n", len(results))
 
 	return results
 }
