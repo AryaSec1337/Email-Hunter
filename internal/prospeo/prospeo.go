@@ -138,7 +138,7 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 }
 
 // PrintAccountInfo displays Prospeo account details in a formatted box.
-func PrintAccountInfo(info *AccountInfo) {
+func PrintAccountInfo(info *AccountInfo, inactive bool) {
 	cyan   := color.New(color.FgCyan, color.Bold)
 	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
@@ -168,6 +168,11 @@ func PrintAccountInfo(info *AccountInfo) {
 	}
 	if info.DailyReqLeft > 0 {
 		row("Daily Req Left", fmt.Sprintf("%d", info.DailyReqLeft))
+	}
+	if inactive {
+		row("Status", yellow.Sprint("Inactive (disabled)"))
+	} else {
+		row("Status", green.Sprint("Active"))
 	}
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }

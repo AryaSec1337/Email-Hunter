@@ -102,8 +102,9 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 }
 
 // PrintAccountInfo displays ContactOut active status.
-func PrintAccountInfo(info *AccountInfo) {
+func PrintAccountInfo(info *AccountInfo, inactive bool) {
 	cyan   := color.New(color.FgCyan, color.Bold)
+	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
 	dim    := color.New(color.FgHiBlack)
 
@@ -120,6 +121,11 @@ func PrintAccountInfo(info *AccountInfo) {
 		return
 	}
 	row("Status", "API Token Loaded (Usage details not exposed by API)")
+	if inactive {
+		row("Status State", yellow.Sprint("Inactive (disabled)"))
+	} else {
+		row("Status State", green.Sprint("Active"))
+	}
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }
 

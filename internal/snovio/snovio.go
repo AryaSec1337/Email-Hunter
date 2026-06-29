@@ -179,8 +179,9 @@ func GetAccountInfo(userID, apiSecret string) *AccountInfo {
 }
 
 // PrintAccountInfo displays Snov.io account details in a formatted box.
-func PrintAccountInfo(info *AccountInfo) {
+func PrintAccountInfo(info *AccountInfo, inactive bool) {
 	cyan   := color.New(color.FgCyan, color.Bold)
+	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
 	dim    := color.New(color.FgHiBlack)
 
@@ -201,6 +202,11 @@ func PrintAccountInfo(info *AccountInfo) {
 
 	row("Account", info.UserID+"  (API Client ID)")
 	row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
+	if inactive {
+		row("Status", yellow.Sprint("Inactive (disabled)"))
+	} else {
+		row("Status", green.Sprint("Active"))
+	}
 
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }

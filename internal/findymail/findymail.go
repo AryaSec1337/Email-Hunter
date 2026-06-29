@@ -106,8 +106,9 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 }
 
 // PrintAccountInfo displays FindyMail account details in a formatted box.
-func PrintAccountInfo(info *AccountInfo) {
+func PrintAccountInfo(info *AccountInfo, inactive bool) {
 	cyan   := color.New(color.FgCyan, color.Bold)
+	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
 	dim    := color.New(color.FgHiBlack)
 
@@ -124,6 +125,11 @@ func PrintAccountInfo(info *AccountInfo) {
 		return
 	}
 	row("Credits", fmt.Sprintf("%d remaining", info.CreditsLeft))
+	if inactive {
+		row("Status", yellow.Sprint("Inactive (disabled)"))
+	} else {
+		row("Status", green.Sprint("Active"))
+	}
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }
 

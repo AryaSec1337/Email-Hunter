@@ -151,31 +151,31 @@ func main() {
 	var findymailInfo *findymail.AccountInfo
 	var contactoutInfo *contactout.AccountInfo
 
-	if !*noHunter {
+	if *hunterKey != "" {
 		hunterInfo = hunterio.GetAccountInfo(*hunterKey)
 	}
-	if !*noSnov {
+	if *snovID != "" && *snovSecret != "" {
 		snovInfo = snovio.GetAccountInfo(*snovID, *snovSecret)
 	}
-	if !*noRocketReach {
+	if *rocketreachKey != "" {
 		rocketreachInfo = rocketreach.GetAccountInfo(*rocketreachKey)
 	}
-	if !*noProspeo {
+	if *prospeoKey != "" {
 		prospeoInfo = prospeo.GetAccountInfo(*prospeoKey)
 	}
-	if !*noFindyMail {
+	if *findymailKey != "" {
 		findymailInfo = findymail.GetAccountInfo(*findymailKey)
 	}
-	if !*noContactOut {
+	if *contactoutKey != "" {
 		contactoutInfo = contactout.GetAccountInfo(*contactoutKey)
 	}
 
-	hunterio.PrintAccountInfo(hunterInfo)
-	snovio.PrintAccountInfo(snovInfo)
-	rocketreach.PrintAccountInfo(rocketreachInfo)
-	prospeo.PrintAccountInfo(prospeoInfo)
-	findymail.PrintAccountInfo(findymailInfo)
-	contactout.PrintAccountInfo(contactoutInfo)
+	hunterio.PrintAccountInfo(hunterInfo, *noHunter)
+	snovio.PrintAccountInfo(snovInfo, *noSnov)
+	rocketreach.PrintAccountInfo(rocketreachInfo, *noRocketReach)
+	prospeo.PrintAccountInfo(prospeoInfo, *noProspeo)
+	findymail.PrintAccountInfo(findymailInfo, *noFindyMail)
+	contactout.PrintAccountInfo(contactoutInfo, *noContactOut)
 	fmt.Println()
 
 	// ── Warn About Missing API Keys ───────────────────────────────────────────

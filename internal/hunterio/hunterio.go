@@ -144,7 +144,7 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 }
 
 // PrintAccountInfo displays Hunter.io account details in a formatted box.
-func PrintAccountInfo(info *AccountInfo) {
+func PrintAccountInfo(info *AccountInfo, inactive bool) {
 	cyan   := color.New(color.FgCyan, color.Bold)
 	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
@@ -165,17 +165,23 @@ func PrintAccountInfo(info *AccountInfo) {
 		return
 	}
 
-	name := info.FirstName + " " + info.LastName
-	row("Account", info.Email+"  ("+name+")")
-	row("Plan", green.Sprint(info.PlanName))
-
-	searchBar := limitBar(info.SearchUsed, info.SearchMax)
-	row("Searches", fmt.Sprintf("%d / %d used  %s  (resets %s)",
-		info.SearchUsed, info.SearchMax, searchBar, info.ResetDate))
-
-	verifBar := limitBar(info.VerifUsed, info.VerifMax)
-	row("Verifications", fmt.Sprintf("%d / %d used  %s",
-		info.VerifUsed, info.VerifMax, verifBar))
+	row("Account", info.Email+"  ("+info.FirstName+" "+info.LastName+")")
+	if info.PlanName != "" {
+		row("Plan", green.Sprint(info.PlanName))
+	}
+	if info.SearchMax > 0 {
+		bar := limitBar(info.SearchUsed, info.SearchMax)
+		row("Searches", fmt.Sprintf("%d / %d used  %s", info.SearchUsed, info.SearchMax, bar))
+	}
+	if info.VerifMax > 0 {
+		bar := limitBar(info.VerifUsed, info.VerifMax)
+		row("Verifications", fmt.Sprintf("%d / %d used  %s", info.VerifUsed, info.VerifMax, bar))
+	}
+	if inactive {
+		row("Status", yellow.Sprint("Inactive (disabled)"))
+	} else {
+		row("Status", green.Sprint("Active"))
+	}
 
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }

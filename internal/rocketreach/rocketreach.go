@@ -126,7 +126,7 @@ func GetAccountInfo(apiKey string) *AccountInfo {
 }
 
 // PrintAccountInfo displays RocketReach account details in a formatted box.
-func PrintAccountInfo(info *AccountInfo) {
+func PrintAccountInfo(info *AccountInfo, inactive bool) {
 	cyan   := color.New(color.FgCyan, color.Bold)
 	green  := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
@@ -151,6 +151,11 @@ func PrintAccountInfo(info *AccountInfo) {
 	if info.LookupsLimit > 0 {
 		bar := limitBar(info.LookupsMade, info.LookupsLimit)
 		row("Lookups", fmt.Sprintf("%d / %d used  %s", info.LookupsMade, info.LookupsLimit, bar))
+	}
+	if inactive {
+		row("Status", yellow.Sprint("Inactive (disabled)"))
+	} else {
+		row("Status", green.Sprint("Active"))
 	}
 	dim.Println("  └─────────────────────────────────────────────────────────────")
 }
